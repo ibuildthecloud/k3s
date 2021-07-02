@@ -26,11 +26,11 @@ RUN if [ "$(go env GOARCH)" = "arm64" ]; then                                   
     mv trivy /usr/local/bin;                                                                                \
     fi
 # this works for both go 1.15 and 1.16
-RUN GO111MODULE=on GOPROXY=direct go get golang.org/x/tools/cmd/goimports@gopls/v0.6.9
+RUN GO111MODULE=on GOPROXY=direct go get golang.org/x/tools/cmd/goimports@gopls/v0.7.0
 RUN rm -rf /go/src /go/pkg
 
 RUN if [ "$(go env GOARCH)" = "amd64" ]; then \
-    curl -sL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s v1.40.0; \
+    curl -sL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s v1.41.1; \
     fi
 
 ENV YQ_URL=https://github.com/mikefarah/yq/releases/download/v4.6.2/yq_linux
