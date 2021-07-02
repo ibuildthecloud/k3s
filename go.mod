@@ -37,7 +37,7 @@ replace (
 	golang.org/x/net => golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
 	golang.org/x/sys => golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
 	google.golang.org/genproto => google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c
-	google.golang.org/grpc => google.golang.org/grpc v1.27.1
+	google.golang.org/grpc => google.golang.org/grpc v1.38.0
 	gopkg.in/square/go-jose.v2 => gopkg.in/square/go-jose.v2 v2.2.2
 	k8s.io/api => github.com/brandond/kubernetes/staging/src/k8s.io/api v1.22.0-rc.0-k3s1
 	k8s.io/apiextensions-apiserver => github.com/brandond/kubernetes/staging/src/k8s.io/apiextensions-apiserver v1.22.0-rc.0-k3s1

@@ -21,9 +21,6 @@
 package manual
 
 import (
-	"strconv"
-	"time"
-
 	"google.golang.org/grpc/resolver"
 )
 
@@ -80,14 +77,4 @@ func (*Resolver) Close() {}
 // UpdateState calls CC.UpdateState.
 func (r *Resolver) UpdateState(s resolver.State) {
 	r.CC.UpdateState(s)
-}
-
-// GenerateAndRegisterManualResolver generates a random scheme and a Resolver
-// with it. It also registers this Resolver.
-// It returns the Resolver and a cleanup function to unregister it.
-func GenerateAndRegisterManualResolver() (*Resolver, func()) {
-	scheme := strconv.FormatInt(time.Now().UnixNano(), 36)
-	r := NewBuilderWithScheme(scheme)
-	resolver.Register(r)
-	return r, func() { resolver.UnregisterForTesting(scheme) }
 }
