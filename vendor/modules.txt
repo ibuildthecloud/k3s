@@ -412,14 +412,11 @@ github.com/coreos/go-semver/semver
 ## explicit
 github.com/coreos/go-systemd/activation
 github.com/coreos/go-systemd/daemon
-github.com/coreos/go-systemd/journal
 # github.com/coreos/go-systemd/v22 v22.3.2
 github.com/coreos/go-systemd/v22/activation
 github.com/coreos/go-systemd/v22/daemon
 github.com/coreos/go-systemd/v22/dbus
 github.com/coreos/go-systemd/v22/journal
-# github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
-github.com/coreos/pkg/capnslog
 # github.com/cpuguy83/go-md2man/v2 v2.0.0
 github.com/cpuguy83/go-md2man/v2/md2man
 # github.com/cyphar/filepath-securejoin v0.2.2
@@ -716,7 +713,7 @@ github.com/k3s-io/helm-controller/pkg/generated/informers/externalversions/helm.
 github.com/k3s-io/helm-controller/pkg/generated/informers/externalversions/internalinterfaces
 github.com/k3s-io/helm-controller/pkg/generated/listers/helm.cattle.io/v1
 github.com/k3s-io/helm-controller/pkg/helm
-# github.com/k3s-io/kine v0.6.2
+# github.com/k3s-io/kine v0.7.0
 ## explicit
 github.com/k3s-io/kine/pkg/broadcaster
 github.com/k3s-io/kine/pkg/client
@@ -1064,26 +1061,7 @@ github.com/xlab/treeprint
 # go.etcd.io/bbolt v1.3.6
 go.etcd.io/bbolt
 # go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738
-go.etcd.io/etcd/auth/authpb
-go.etcd.io/etcd/clientv3
-go.etcd.io/etcd/clientv3/balancer
-go.etcd.io/etcd/clientv3/balancer/connectivity
-go.etcd.io/etcd/clientv3/balancer/picker
-go.etcd.io/etcd/clientv3/balancer/resolver/endpoint
-go.etcd.io/etcd/clientv3/credentials
 go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes
-go.etcd.io/etcd/etcdserver/etcdserverpb
-go.etcd.io/etcd/mvcc/mvccpb
-go.etcd.io/etcd/pkg/logutil
-go.etcd.io/etcd/pkg/systemd
-go.etcd.io/etcd/pkg/tlsutil
-go.etcd.io/etcd/pkg/transport
-go.etcd.io/etcd/pkg/types
-go.etcd.io/etcd/raft
-go.etcd.io/etcd/raft/confchange
-go.etcd.io/etcd/raft/quorum
-go.etcd.io/etcd/raft/raftpb
-go.etcd.io/etcd/raft/tracker
 # go.etcd.io/etcd/api/v3 v3.5.0 => github.com/k3s-io/etcd/api/v3 v3.5.0-k3s1
 ## explicit
 go.etcd.io/etcd/api/v3/authpb
@@ -1474,9 +1452,7 @@ google.golang.org/grpc/metadata
 google.golang.org/grpc/naming
 google.golang.org/grpc/peer
 google.golang.org/grpc/resolver
-google.golang.org/grpc/resolver/dns
 google.golang.org/grpc/resolver/manual
-google.golang.org/grpc/resolver/passthrough
 google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status

@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 
-	"go.etcd.io/etcd/etcdserver/etcdserverpb"
+	"go.etcd.io/etcd/api/v3/etcdserverpb"
 )
 
 func isCreate(txn *etcdserverpb.TxnRequest) *etcdserverpb.PutRequest {
