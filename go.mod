@@ -31,39 +31,40 @@ replace (
 	github.com/rancher/k3s/pkg/data => ./pkg/data
 	go.etcd.io/etcd => github.com/k3s-io/etcd v0.5.0-alpha.5.0.20201208200253-50621aee4aea
 	golang.org/x/crypto => golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
-	golang.org/x/net => golang.org/x/net v0.0.0-20210224082022-3d97a244fca7
-	golang.org/x/sys => golang.org/x/sys v0.0.0-20210225134936-a50acf3fe073
-	google.golang.org/genproto => google.golang.org/genproto v0.0.0-20200513103714-09dca8ec2884
+	golang.org/x/net => golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
+	golang.org/x/sys => golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
+	google.golang.org/genproto => google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c
 	google.golang.org/grpc => google.golang.org/grpc v1.27.1
 	gopkg.in/square/go-jose.v2 => gopkg.in/square/go-jose.v2 v2.2.2
-	k8s.io/api => github.com/k3s-io/kubernetes/staging/src/k8s.io/api v1.21.3-k3s1
-	k8s.io/apiextensions-apiserver => github.com/k3s-io/kubernetes/staging/src/k8s.io/apiextensions-apiserver v1.21.3-k3s1
-	k8s.io/apimachinery => github.com/k3s-io/kubernetes/staging/src/k8s.io/apimachinery v1.21.3-k3s1
-	k8s.io/apiserver => github.com/k3s-io/kubernetes/staging/src/k8s.io/apiserver v1.21.3-k3s1
-	k8s.io/cli-runtime => github.com/k3s-io/kubernetes/staging/src/k8s.io/cli-runtime v1.21.3-k3s1
-	k8s.io/client-go => github.com/k3s-io/kubernetes/staging/src/k8s.io/client-go v1.21.3-k3s1
-	k8s.io/cloud-provider => github.com/k3s-io/kubernetes/staging/src/k8s.io/cloud-provider v1.21.3-k3s1
-	k8s.io/cluster-bootstrap => github.com/k3s-io/kubernetes/staging/src/k8s.io/cluster-bootstrap v1.21.3-k3s1
-	k8s.io/code-generator => github.com/k3s-io/kubernetes/staging/src/k8s.io/code-generator v1.21.3-k3s1
-	k8s.io/component-base => github.com/k3s-io/kubernetes/staging/src/k8s.io/component-base v1.21.3-k3s1
-	k8s.io/component-helpers => github.com/k3s-io/kubernetes/staging/src/k8s.io/component-helpers v1.21.3-k3s1
-	k8s.io/controller-manager => github.com/k3s-io/kubernetes/staging/src/k8s.io/controller-manager v1.21.3-k3s1
-	k8s.io/cri-api => github.com/k3s-io/kubernetes/staging/src/k8s.io/cri-api v1.21.3-k3s1
-	k8s.io/csi-translation-lib => github.com/k3s-io/kubernetes/staging/src/k8s.io/csi-translation-lib v1.21.3-k3s1
-	k8s.io/kube-aggregator => github.com/k3s-io/kubernetes/staging/src/k8s.io/kube-aggregator v1.21.3-k3s1
-	k8s.io/kube-controller-manager => github.com/k3s-io/kubernetes/staging/src/k8s.io/kube-controller-manager v1.21.3-k3s1
-	k8s.io/kube-proxy => github.com/k3s-io/kubernetes/staging/src/k8s.io/kube-proxy v1.21.3-k3s1
-	k8s.io/kube-scheduler => github.com/k3s-io/kubernetes/staging/src/k8s.io/kube-scheduler v1.21.3-k3s1
-	k8s.io/kubectl => github.com/k3s-io/kubernetes/staging/src/k8s.io/kubectl v1.21.3-k3s1
-	k8s.io/kubelet => github.com/k3s-io/kubernetes/staging/src/k8s.io/kubelet v1.21.3-k3s1
-	k8s.io/kubernetes => github.com/k3s-io/kubernetes v1.21.3-k3s1
-	k8s.io/legacy-cloud-providers => github.com/k3s-io/kubernetes/staging/src/k8s.io/legacy-cloud-providers v1.21.3-k3s1
-	k8s.io/metrics => github.com/k3s-io/kubernetes/staging/src/k8s.io/metrics v1.21.3-k3s1
-	k8s.io/mount-utils => github.com/k3s-io/kubernetes/staging/src/k8s.io/mount-utils v1.21.3-k3s1
-	k8s.io/node-api => github.com/k3s-io/kubernetes/staging/src/k8s.io/node-api v1.21.3-k3s1
-	k8s.io/sample-apiserver => github.com/k3s-io/kubernetes/staging/src/k8s.io/sample-apiserver v1.21.3-k3s1
-	k8s.io/sample-cli-plugin => github.com/k3s-io/kubernetes/staging/src/k8s.io/sample-cli-plugin v1.21.3-k3s1
-	k8s.io/sample-controller => github.com/k3s-io/kubernetes/staging/src/k8s.io/sample-controller v1.21.3-k3s1
+	k8s.io/api => github.com/brandond/kubernetes/staging/src/k8s.io/api v1.22.0-rc.0-k3s1
+	k8s.io/apiextensions-apiserver => github.com/brandond/kubernetes/staging/src/k8s.io/apiextensions-apiserver v1.22.0-rc.0-k3s1
+	k8s.io/apimachinery => github.com/brandond/kubernetes/staging/src/k8s.io/apimachinery v1.22.0-rc.0-k3s1
+	k8s.io/apiserver => github.com/brandond/kubernetes/staging/src/k8s.io/apiserver v1.22.0-rc.0-k3s1
+	k8s.io/cli-runtime => github.com/brandond/kubernetes/staging/src/k8s.io/cli-runtime v1.22.0-rc.0-k3s1
+	k8s.io/client-go => github.com/brandond/kubernetes/staging/src/k8s.io/client-go v1.22.0-rc.0-k3s1
+	k8s.io/cloud-provider => github.com/brandond/kubernetes/staging/src/k8s.io/cloud-provider v1.22.0-rc.0-k3s1
+	k8s.io/cluster-bootstrap => github.com/brandond/kubernetes/staging/src/k8s.io/cluster-bootstrap v1.22.0-rc.0-k3s1
+	k8s.io/code-generator => github.com/brandond/kubernetes/staging/src/k8s.io/code-generator v1.22.0-rc.0-k3s1
+	k8s.io/component-base => github.com/brandond/kubernetes/staging/src/k8s.io/component-base v1.22.0-rc.0-k3s1
+	k8s.io/component-helpers => github.com/brandond/kubernetes/staging/src/k8s.io/component-helpers v1.22.0-rc.0-k3s1
+	k8s.io/controller-manager => github.com/brandond/kubernetes/staging/src/k8s.io/controller-manager v1.22.0-rc.0-k3s1
+	k8s.io/cri-api => github.com/brandond/kubernetes/staging/src/k8s.io/cri-api v1.22.0-rc.0-k3s1
+	k8s.io/csi-translation-lib => github.com/brandond/kubernetes/staging/src/k8s.io/csi-translation-lib v1.22.0-rc.0-k3s1
+	k8s.io/kube-aggregator => github.com/brandond/kubernetes/staging/src/k8s.io/kube-aggregator v1.22.0-rc.0-k3s1
+	k8s.io/kube-controller-manager => github.com/brandond/kubernetes/staging/src/k8s.io/kube-controller-manager v1.22.0-rc.0-k3s1
+	k8s.io/kube-proxy => github.com/brandond/kubernetes/staging/src/k8s.io/kube-proxy v1.22.0-rc.0-k3s1
+	k8s.io/kube-scheduler => github.com/brandond/kubernetes/staging/src/k8s.io/kube-scheduler v1.22.0-rc.0-k3s1
+	k8s.io/kubectl => github.com/brandond/kubernetes/staging/src/k8s.io/kubectl v1.22.0-rc.0-k3s1
+	k8s.io/kubelet => github.com/brandond/kubernetes/staging/src/k8s.io/kubelet v1.22.0-rc.0-k3s1
+	k8s.io/kubernetes => github.com/brandond/kubernetes v1.22.0-rc.0-k3s1
+	k8s.io/legacy-cloud-providers => github.com/brandond/kubernetes/staging/src/k8s.io/legacy-cloud-providers v1.22.0-rc.0-k3s1
+	k8s.io/metrics => github.com/brandond/kubernetes/staging/src/k8s.io/metrics v1.22.0-rc.0-k3s1
+	k8s.io/mount-utils => github.com/brandond/kubernetes/staging/src/k8s.io/mount-utils v1.22.0-rc.0-k3s1
+	k8s.io/node-api => github.com/brandond/kubernetes/staging/src/k8s.io/node-api v1.22.0-rc.0-k3s1
+	k8s.io/pod-security-admission => github.com/brandond/kubernetes/staging/src/k8s.io/pod-security-admission v1.22.0-rc.0-k3s1
+	k8s.io/sample-apiserver => github.com/brandond/kubernetes/staging/src/k8s.io/sample-apiserver v1.22.0-rc.0-k3s1
+	k8s.io/sample-cli-plugin => github.com/brandond/kubernetes/staging/src/k8s.io/sample-cli-plugin v1.22.0-rc.0-k3s1
+	k8s.io/sample-controller => github.com/brandond/kubernetes/staging/src/k8s.io/sample-controller v1.22.0-rc.0-k3s1
 	mvdan.cc/unparam => mvdan.cc/unparam v0.0.0-20210104141923-aac4ce9116a7
 )
 
@@ -84,7 +85,7 @@ require (
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/golangplus/testing v1.0.0 // indirect
-	github.com/google/cadvisor v0.39.0
+	github.com/google/cadvisor v0.39.2
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
@@ -116,23 +117,23 @@ require (
 	github.com/urfave/cli v1.22.2
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20201208200253-50621aee4aea
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
-	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
-	golang.org/x/sys v0.0.0-20210426230700-d19ff857e887
-	google.golang.org/grpc v1.37.0
+	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023
+	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
+	google.golang.org/grpc v1.38.0
 	gopkg.in/yaml.v2 v2.4.0
 	inet.af/tcpproxy v0.0.0-20200125044825-b6bb9b5b8252
-	k8s.io/api v0.21.2
-	k8s.io/apimachinery v0.21.2
-	k8s.io/apiserver v0.21.2
+	k8s.io/api v0.22.0-rc.0
+	k8s.io/apimachinery v0.22.0-rc.0
+	k8s.io/apiserver v0.22.0-rc.0
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
-	k8s.io/cloud-provider v0.21.2
-	k8s.io/component-base v0.21.2
-	k8s.io/controller-manager v0.21.2
-	k8s.io/cri-api v0.21.2
+	k8s.io/cloud-provider v0.22.0-rc.0
+	k8s.io/component-base v0.22.0-rc.0
+	k8s.io/controller-manager v0.22.0-rc.0
+	k8s.io/cri-api v0.22.0-rc.0
 	k8s.io/klog v1.0.0
-	k8s.io/klog/v2 v2.8.0
-	k8s.io/kubectl v0.21.2
-	k8s.io/kubernetes v1.21.3
-	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
+	k8s.io/klog/v2 v2.9.0
+	k8s.io/kubectl v0.22.0-rc.0
+	k8s.io/kubernetes v1.22.0-rc.0
+	k8s.io/utils v0.0.0-20210707171843-4b05e18ac7d9
 	sigs.k8s.io/yaml v1.2.0
 )

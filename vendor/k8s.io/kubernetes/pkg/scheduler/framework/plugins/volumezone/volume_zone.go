@@ -31,6 +31,7 @@ import (
 	storagehelpers "k8s.io/component-helpers/storage/volume"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
+	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/names"
 )
 
 // VolumeZone is a plugin that checks volume zone.
@@ -41,10 +42,11 @@ type VolumeZone struct {
 }
 
 var _ framework.FilterPlugin = &VolumeZone{}
+var _ framework.EnqueueExtensions = &VolumeZone{}
 
 const (
 	// Name is the name of the plugin used in the plugin registry and configurations.
-	Name = "VolumeZone"
+	Name = names.VolumeZone
 
 	// ErrReasonConflict is used for NoVolumeZoneConflict predicate error.
 	ErrReasonConflict = "node(s) had no available volume zone"
@@ -116,10 +118,6 @@ func (pl *VolumeZone) Filter(ctx context.Context, _ *framework.CycleState, pod *
 			return s
 		}
 
-		if pvc == nil {
-			return framework.NewStatus(framework.Error, fmt.Sprintf("PersistentVolumeClaim was not found: %q", pvcName))
-		}
-
 		pvName := pvc.Spec.VolumeName
 		if pvName == "" {
 			scName := storagehelpers.GetPersistentVolumeClaimClass(pvc)
@@ -147,15 +145,11 @@ func (pl *VolumeZone) Filter(ctx context.Context, _ *framework.CycleState, pod *
 			return s
 		}
 
-		if pv == nil {
-			return framework.NewStatus(framework.Error, fmt.Sprintf("PersistentVolume was not found: %q", pvName))
-		}
-
 		for k, v := range pv.ObjectMeta.Labels {
 			if !volumeZoneLabels.Has(k) {
 				continue
 			}
-			nodeV, _ := nodeConstraints[k]
+			nodeV := nodeConstraints[k]
 			volumeVSet, err := volumehelpers.LabelZonesToSet(v)
 			if err != nil {
 				klog.InfoS("Failed to parse label, ignoring the label", "label", fmt.Sprintf("%s:%s", k, v), "err", err)
@@ -179,6 +173,23 @@ func getErrorAsStatus(err error) *framework.Status {
 		return framework.AsStatus(err)
 	}
 	return nil
+}
+
+// EventsToRegister returns the possible events that may make a Pod
+// failed by this plugin schedulable.
+func (pl *VolumeZone) EventsToRegister() []framework.ClusterEvent {
+	return []framework.ClusterEvent{
+		// New storageClass with bind mode `VolumeBindingWaitForFirstConsumer` will make a pod schedulable.
+		// Due to immutable field `storageClass.volumeBindingMode`, storageClass update events are ignored.
+		{Resource: framework.StorageClass, ActionType: framework.Add},
+		// A new node or updating a node's volume zone labels may make a pod schedulable.
+		{Resource: framework.Node, ActionType: framework.Add | framework.UpdateNodeLabel},
+		// A new pvc may make a pod schedulable.
+		// Due to fields are immutable except `spec.resources`, pvc update events are ignored.
+		{Resource: framework.PersistentVolumeClaim, ActionType: framework.Add},
+		// A new pv or updating a pv's volume zone labels may make a pod shedulable.
+		{Resource: framework.PersistentVolume, ActionType: framework.Add | framework.Update},
+	}
 }
 
 // New initializes a new plugin and returns it.
