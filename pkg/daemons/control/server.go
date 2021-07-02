@@ -98,11 +98,9 @@ func controllerManager(cfg *config.Control, runtime *config.ControlRuntime) erro
 		"allocate-node-cidrs":              "true",
 		"cluster-cidr":                     util2.JoinIPNets(cfg.ClusterIPRanges),
 		"root-ca-file":                     runtime.ServerCA,
-		"port":                             "10252",
 		"profiling":                        "false",
-		"address":                          localhostIP.String(),
 		"bind-address":                     localhostIP.String(),
-		"secure-port":                      "0",
+		"secure-port":                      "10257",
 		"use-service-account-credentials":  "true",
 		"cluster-signing-kube-apiserver-client-cert-file": runtime.ClientCA,
 		"cluster-signing-kube-apiserver-client-key-file":  runtime.ClientCAKey,
@@ -130,10 +128,8 @@ func controllerManager(cfg *config.Control, runtime *config.ControlRuntime) erro
 func scheduler(cfg *config.Control, runtime *config.ControlRuntime) error {
 	argsMap := map[string]string{
 		"kubeconfig":   runtime.KubeConfigScheduler,
-		"port":         "10251",
-		"address":      "127.0.0.1",
-		"bind-address": "127.0.0.1",
-		"secure-port":  "0",
+		"bind-address": localhostIP.String(),
+		"secure-port":  "10259",
 		"profiling":    "false",
 	}
 	if cfg.NoLeaderElect {
