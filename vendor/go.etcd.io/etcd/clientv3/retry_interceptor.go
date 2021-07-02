@@ -38,7 +38,6 @@ import (
 func (c *Client) unaryClientInterceptor(logger *zap.Logger, optFuncs ...retryOption) grpc.UnaryClientInterceptor {
 	intOpts := reuseOrNewWithCallOptions(defaultOptions, optFuncs)
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		ctx = withVersion(ctx)
 		grpcOpts, retryOpts := filterCallOptions(opts)
 		callOpts := reuseOrNewWithCallOptions(intOpts, retryOpts)
 		// short circuit for simplicity, and avoiding allocations.
@@ -104,7 +103,6 @@ func (c *Client) unaryClientInterceptor(logger *zap.Logger, optFuncs ...retryOpt
 func (c *Client) streamClientInterceptor(logger *zap.Logger, optFuncs ...retryOption) grpc.StreamClientInterceptor {
 	intOpts := reuseOrNewWithCallOptions(defaultOptions, optFuncs)
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-		ctx = withVersion(ctx)
 		grpcOpts, retryOpts := filterCallOptions(opts)
 		callOpts := reuseOrNewWithCallOptions(intOpts, retryOpts)
 		// short circuit for simplicity, and avoiding allocations.
@@ -115,9 +113,10 @@ func (c *Client) streamClientInterceptor(logger *zap.Logger, optFuncs ...retryOp
 			return nil, status.Errorf(codes.Unimplemented, "clientv3/retry_interceptor: cannot retry on ClientStreams, set Disable()")
 		}
 		newStreamer, err := streamer(ctx, desc, cc, method, grpcOpts...)
+		logger.Warn("retry stream intercept", zap.Error(err))
 		if err != nil {
-			logger.Error("streamer failed to create ClientStream", zap.Error(err))
-			return nil, err // TODO(mwitkow): Maybe dial and transport errors should be retriable?
+			// TODO(mwitkow): Maybe dial and transport errors should be retriable?
+			return nil, err
 		}
 		retryingStreamer := &serverStreamingRetryingStream{
 			client:       c,
@@ -186,7 +185,6 @@ func (s *serverStreamingRetryingStream) RecvMsg(m interface{}) error {
 	if !attemptRetry {
 		return lastErr // success or hard failure
 	}
-
 	// We start off from attempt 1, because zeroth was already made on normal SendMsg().
 	for attempt := uint(1); attempt < s.callOpts.max; attempt++ {
 		if err := waitRetryBackoff(s.ctx, attempt, s.callOpts); err != nil {
@@ -194,13 +192,12 @@ func (s *serverStreamingRetryingStream) RecvMsg(m interface{}) error {
 		}
 		newStream, err := s.reestablishStreamAndResendBuffer(s.ctx)
 		if err != nil {
-			s.client.lg.Error("failed reestablishStreamAndResendBuffer", zap.Error(err))
-			return err // TODO(mwitkow): Maybe dial and transport errors should be retriable?
+			// TODO(mwitkow): Maybe dial and transport errors should be retriable?
+			return err
 		}
 		s.setStream(newStream)
-
-		s.client.lg.Warn("retrying RecvMsg", zap.Error(lastErr))
 		attemptRetry, lastErr = s.receiveMsgAndIndicateRetry(m)
+		//fmt.Printf("Received message and indicate: %v  %v\n", attemptRetry, lastErr)
 		if !attemptRetry {
 			return lastErr
 		}

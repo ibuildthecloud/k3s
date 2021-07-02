@@ -29,10 +29,10 @@ import (
 	"github.com/rancher/k3s/pkg/version"
 	"github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
-	etcd "go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/clientv3/snapshot"
-	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
-	"go.etcd.io/etcd/etcdserver/etcdserverpb"
+	"go.etcd.io/etcd/api/v3/etcdserverpb"
+	"go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/etcdutl/v3/snapshot"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,7 +64,7 @@ var (
 )
 
 type ETCD struct {
-	client  *etcd.Client
+	client  *clientv3.Client
 	config  *config.Control
 	name    string
 	runtime *config.ControlRuntime
@@ -302,7 +302,7 @@ func (e *ETCD) join(ctx context.Context, clientAccessInfo *clientaccess.Info) er
 	members, err := client.MemberList(ctx)
 	if err != nil {
 		logrus.Errorf("Failed to get member list from etcd cluster. Will assume this member is already added")
-		members = &etcd.MemberListResponse{
+		members = &clientv3.MemberListResponse{
 			Members: append(memberList.Members, &etcdserverpb.Member{
 				Name:     e.name,
 				PeerURLs: []string{e.peerURL()},
@@ -443,21 +443,21 @@ func (e *ETCD) infoHandler() http.Handler {
 }
 
 // getClient returns an etcd client connected to the specified endpoints
-func GetClient(ctx context.Context, runtime *config.ControlRuntime, endpoints ...string) (*etcd.Client, error) {
+func GetClient(ctx context.Context, runtime *config.ControlRuntime, endpoints ...string) (*clientv3.Client, error) {
 	cfg, err := getClientConfig(ctx, runtime, endpoints...)
 	if err != nil {
 		return nil, err
 	}
-	return etcd.New(*cfg)
+	return clientv3.New(*cfg)
 }
 
 //getClientConfig generates an etcd client config connected to the specified endpoints
-func getClientConfig(ctx context.Context, runtime *config.ControlRuntime, endpoints ...string) (*etcd.Config, error) {
+func getClientConfig(ctx context.Context, runtime *config.ControlRuntime, endpoints ...string) (*clientv3.Config, error) {
 	tlsConfig, err := toTLSConfig(runtime)
 	if err != nil {
 		return nil, err
 	}
-	cfg := &etcd.Config{
+	cfg := &clientv3.Config{
 		Endpoints:            endpoints,
 		TLS:                  tlsConfig,
 		Context:              ctx,

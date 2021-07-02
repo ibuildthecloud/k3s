@@ -79,14 +79,9 @@ func deriveRawDescriptor(d protoreflect.Descriptor) ([]byte, []int) {
 	}
 
 	// Obtain the raw file descriptor.
-	var raw []byte
-	switch fd := d.(type) {
-	case interface{ ProtoLegacyRawDesc() []byte }:
-		raw = fd.ProtoLegacyRawDesc()
-	case protoreflect.FileDescriptor:
-		raw, _ = proto.Marshal(protodesc.ToFileDescriptorProto(fd))
-	}
-	file := protoimpl.X.CompressGZIP(raw)
+	fd := d.(protoreflect.FileDescriptor)
+	b, _ := proto.Marshal(protodesc.ToFileDescriptorProto(fd))
+	file := protoimpl.X.CompressGZIP(b)
 
 	// Reverse the indexes, since we populated it in reverse.
 	for i, j := 0, len(idxs)-1; i < j; i, j = i+1, j-1 {

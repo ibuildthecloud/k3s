@@ -25,7 +25,6 @@ import (
 	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
 	mvccpb "go.etcd.io/etcd/mvcc/mvccpb"
 
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -141,7 +140,6 @@ type watcher struct {
 
 	// streams holds all the active grpc streams keyed by ctx value.
 	streams map[string]*watchGrpcStream
-	lg      *zap.Logger
 }
 
 // watchGrpcStream tracks all watch resources attached to a single grpc stream.
@@ -178,8 +176,6 @@ type watchGrpcStream struct {
 	resumec chan struct{}
 	// closeErr is the error that closed the watch stream
 	closeErr error
-
-	lg *zap.Logger
 }
 
 // watchStreamRequest is a union of the supported watch request operation types
@@ -246,7 +242,6 @@ func NewWatchFromWatchClient(wc pb.WatchClient, c *Client) Watcher {
 	}
 	if c != nil {
 		w.callOpts = c.callOpts
-		w.lg = c.lg
 	}
 	return w
 }
@@ -278,7 +273,6 @@ func (w *watcher) newWatcherGrpcStream(inctx context.Context) *watchGrpcStream {
 		errc:       make(chan error, 1),
 		closingc:   make(chan *watcherStream),
 		resumec:    make(chan struct{}),
-		lg:         w.lg,
 	}
 	go wgs.run()
 	return wgs
@@ -550,18 +544,10 @@ func (w *watchGrpcStream) run() {
 				w.resuming = append(w.resuming, ws)
 				if len(w.resuming) == 1 {
 					// head of resume queue, can register a new watcher
-					if err := wc.Send(ws.initReq.toPB()); err != nil {
-						if w.lg != nil {
-							w.lg.Debug("error when sending request", zap.Error(err))
-						}
-					}
+					wc.Send(ws.initReq.toPB())
 				}
 			case *progressRequest:
-				if err := wc.Send(wreq.toPB()); err != nil {
-					if w.lg != nil {
-						w.lg.Debug("error when sending request", zap.Error(err))
-					}
-				}
+				wc.Send(wreq.toPB())
 			}
 
 		// new events from the watch client
@@ -585,11 +571,7 @@ func (w *watchGrpcStream) run() {
 				}
 
 				if ws := w.nextResume(); ws != nil {
-					if err := wc.Send(ws.initReq.toPB()); err != nil {
-						if w.lg != nil {
-							w.lg.Debug("error when sending request", zap.Error(err))
-						}
-					}
+					wc.Send(ws.initReq.toPB())
 				}
 
 				// reset for next iteration
@@ -634,14 +616,7 @@ func (w *watchGrpcStream) run() {
 					},
 				}
 				req := &pb.WatchRequest{RequestUnion: cr}
-				if w.lg != nil {
-					w.lg.Debug("sending watch cancel request for failed dispatch", zap.Int64("watch-id", pbresp.WatchId))
-				}
-				if err := wc.Send(req); err != nil {
-					if w.lg != nil {
-						w.lg.Debug("failed to send watch cancel request", zap.Int64("watch-id", pbresp.WatchId), zap.Error(err))
-					}
-				}
+				wc.Send(req)
 			}
 
 		// watch client failed on Recv; spawn another if possible
@@ -654,11 +629,7 @@ func (w *watchGrpcStream) run() {
 				return
 			}
 			if ws := w.nextResume(); ws != nil {
-				if err := wc.Send(ws.initReq.toPB()); err != nil {
-					if w.lg != nil {
-						w.lg.Debug("error when sending request", zap.Error(err))
-					}
-				}
+				wc.Send(ws.initReq.toPB())
 			}
 			cancelSet = make(map[int64]struct{})
 
@@ -666,25 +637,6 @@ func (w *watchGrpcStream) run() {
 			return
 
 		case ws := <-w.closingc:
-			if ws.id != -1 {
-				// client is closing an established watch; close it on the server proactively instead of waiting
-				// to close when the next message arrives
-				cancelSet[ws.id] = struct{}{}
-				cr := &pb.WatchRequest_CancelRequest{
-					CancelRequest: &pb.WatchCancelRequest{
-						WatchId: ws.id,
-					},
-				}
-				req := &pb.WatchRequest{RequestUnion: cr}
-				if w.lg != nil {
-					w.lg.Debug("sending watch cancel request for closed watcher", zap.Int64("watch-id", ws.id))
-				}
-				if err := wc.Send(req); err != nil {
-					if w.lg != nil {
-						w.lg.Debug("failed to send watch cancel request", zap.Int64("watch-id", ws.id), zap.Error(err))
-					}
-				}
-			}
 			w.closeSubstream(ws)
 			delete(closing, ws)
 			// no more watchers on this stream, shutdown

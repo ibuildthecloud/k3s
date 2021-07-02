@@ -10,7 +10,7 @@ import (
 	"github.com/rancher/k3s/pkg/util"
 	"github.com/rancher/k3s/pkg/version"
 	controllerv1 "github.com/rancher/wrangler-api/pkg/generated/controllers/core/v1"
-	etcdv3 "go.etcd.io/etcd/clientv3"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -38,7 +38,7 @@ type handler struct {
 	endpointsController controllerv1.EndpointsController
 	runtime             *config.ControlRuntime
 	ctx                 context.Context
-	etcdClient          *etcdv3.Client
+	etcdClient          *clientv3.Client
 }
 
 // This controller will update the version.program/apiaddresses etcd key with a list of
