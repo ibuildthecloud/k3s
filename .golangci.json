@@ -3,7 +3,7 @@
 		"disable-all": true,
 		"enable": [
 			"govet",
-			"golint",
+			"revive",
 			"goimports",
 			"misspell",
 			"ineffassign",
@@ -12,11 +12,27 @@
 	},
 	"run": {
 		"skip-dirs": [
-			"build", "/go/src/github.com/rancher/k3s/build"
+			"build",
+			"contrib",
+			"manifests",
+			"package",
+			"scripts"
 		],
 		"skip-files": [
 			"/zz_generated_"
 		],
 		"deadline": "5m"
+	},
+	"issues": {
+		"exclude-rules": [
+			{
+				"linters": "typecheck",
+				"text": "imported but not used"
+			},
+			{
+				"linters": "revive",
+				"text": "should have comment"
+			}
+		]
 	}
 }
