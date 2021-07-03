@@ -46,7 +46,7 @@ func (o *desiredSet) getControllerAndClient(debugID string, gvk schema.GroupVers
 		informer = newInformer
 	}
 	if informer == nil && o.strictCaching {
-		return nil, nil, fmt.Errorf("failed to find informer for %s for %s", gvk, debugID)
+		return nil, nil, fmt.Errorf("failed to find informer for %s for %s: %w", gvk, debugID, ErrNoInformerFound)
 	}
 
 	return informer, client, nil
@@ -61,17 +61,29 @@ func (o *desiredSet) assignOwnerReference(gvk schema.GroupVersionKind, objs map[
 		return err
 	}
 	ownerGVK, err := gvk2.Get(o.owner)
-	ownerNSed := o.a.clients.IsNamespaced(ownerGVK)
+	if err != nil {
+		return err
+	}
+	ownerNSed, err := o.a.clients.IsNamespaced(ownerGVK)
+	if err != nil {
+		return err
+	}
 
 	for k, v := range objs {
 		// can't set owners across boundaries
-		if ownerNSed && !o.a.clients.IsNamespaced(gvk) {
-			continue
+		if ownerNSed {
+			if nsed, err := o.a.clients.IsNamespaced(gvk); err != nil {
+				return err
+			} else if !nsed {
+				continue
+			}
 		}
 
 		assignNS := false
 		assignOwner := true
-		if o.a.clients.IsNamespaced(gvk) {
+		if nsed, err := o.a.clients.IsNamespaced(gvk); err != nil {
+			return err
+		} else if nsed {
 			if k.Namespace == "" {
 				assignNS = true
 			} else if k.Namespace != ownerMeta.GetNamespace() && ownerNSed {
@@ -176,6 +188,21 @@ func (o *desiredSet) createPatcher(client dynamic.NamespaceableResourceInterface
 	}
 }
 
+func (o *desiredSet) filterCrossVersion(gvk schema.GroupVersionKind, keys []objectset.ObjectKey) []objectset.ObjectKey {
+	result := make([]objectset.ObjectKey, 0, len(keys))
+	gk := gvk.GroupKind()
+	for _, key := range keys {
+		if o.objs.Contains(gk, key) {
+			continue
+		}
+		if key.Namespace == o.defaultNamespace && o.objs.Contains(gk, objectset.ObjectKey{Name: key.Name}) {
+			continue
+		}
+		result = append(result, key)
+	}
+	return result
+}
+
 func (o *desiredSet) process(debugID string, set labels.Selector, gvk schema.GroupVersionKind, objs map[objectset.ObjectKey]runtime.Object) {
 	controller, client, err := o.getControllerAndClient(debugID, gvk)
 	if err != nil {
@@ -183,14 +210,18 @@ func (o *desiredSet) process(debugID string, set labels.Selector, gvk schema.Gro
 		return
 	}
 
-	nsed := o.a.clients.IsNamespaced(gvk)
+	nsed, err := o.a.clients.IsNamespaced(gvk)
+	if err != nil {
+		o.err(err)
+		return
+	}
 
 	if !nsed && o.restrictClusterScoped {
 		o.err(fmt.Errorf("invalid cluster scoped gvk: %v", gvk))
 		return
 	}
 
-	if o.setOwnerReference {
+	if o.setOwnerReference && o.owner != nil {
 		if err := o.assignOwnerReference(gvk, objs); err != nil {
 			o.err(err)
 			return
@@ -216,13 +247,16 @@ func (o *desiredSet) process(debugID string, set labels.Selector, gvk schema.Gro
 
 	reconciler := o.reconcilers[gvk]
 
-	existing, err := o.list(controller, client, set)
+	existing, err := o.list(nsed, controller, client, set)
 	if err != nil {
 		o.err(errors.Wrapf(err, "failed to list %s for %s", gvk, debugID))
 		return
 	}
 
 	toCreate, toDelete, toUpdate := compareSets(existing, objs)
+
+	// check for resources in the objectset but under a different version of the same group/kind
+	toDelete = o.filterCrossVersion(gvk, toDelete)
 
 	if o.createPlan {
 		o.plan.Create[gvk] = toCreate
@@ -300,7 +334,7 @@ func (o *desiredSet) process(debugID string, set labels.Selector, gvk schema.Gro
 	}
 }
 
-func (o *desiredSet) list(informer cache.SharedIndexInformer, client dynamic.NamespaceableResourceInterface, selector labels.Selector) (map[objectset.ObjectKey]runtime.Object, error) {
+func (o *desiredSet) list(namespaced bool, informer cache.SharedIndexInformer, client dynamic.NamespaceableResourceInterface, selector labels.Selector) (map[objectset.ObjectKey]runtime.Object, error) {
 	var (
 		errs []error
 		objs = map[objectset.ObjectKey]runtime.Object{}
@@ -331,7 +365,12 @@ func (o *desiredSet) list(informer cache.SharedIndexInformer, client dynamic.Nam
 		return objs, merr.NewErrors(errs...)
 	}
 
-	err := cache.ListAllByNamespace(informer.GetIndexer(), "", selector, func(obj interface{}) {
+	var namespace string
+	if namespaced {
+		namespace = o.listerNamespace
+	}
+
+	err := cache.ListAllByNamespace(informer.GetIndexer(), namespace, selector, func(obj interface{}) {
 		if err := addObjectToMap(objs, obj); err != nil {
 			errs = append(errs, err)
 		}

@@ -3,6 +3,7 @@ package generators
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	args2 "github.com/rancher/wrangler/pkg/controller-gen/args"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -31,16 +32,11 @@ type groupInterfaceGo struct {
 	customArgs *args2.CustomArgs
 }
 
-func (f *groupInterfaceGo) Imports(*generator.Context) []string {
+func (f *groupInterfaceGo) Imports(context *generator.Context) []string {
 	firstType := f.customArgs.TypesByGroup[f.gv][0]
-	group := f.customArgs.Options.Groups[f.gv.Group]
 
-	packages := []string{
-		GenericPackage,
-		fmt.Sprintf("%s \"%s\"", f.gv.Version, firstType.Package),
-		fmt.Sprintf("clientset \"%s/typed/%s/%s\"", group.ClientSetPackage, groupPackageName(f.gv.Group, group.PackageName), f.gv.Version),
-		fmt.Sprintf("informers \"%s/%s/%s\"", group.InformersPackage, groupPackageName(f.gv.Group, group.PackageName), f.gv.Version),
-	}
+	packages := append(Imports,
+		fmt.Sprintf("%s \"%s\"", f.gv.Version, firstType.Package))
 
 	return packages
 }
@@ -63,6 +59,10 @@ func (f *groupInterfaceGo) Init(c *generator.Context, w io.Writer) error {
 	}
 	types = orderer.OrderTypes(types)
 
+	sw.Do("func init() {\n", nil)
+	sw.Do("schemes.Register("+f.gv.Version+".AddToScheme)\n", nil)
+	sw.Do("}\n", nil)
+
 	sw.Do("type Interface interface {\n", nil)
 	for _, t := range types {
 		m := map[string]interface{}{
@@ -83,13 +83,16 @@ func (f *groupInterfaceGo) Init(c *generator.Context, w io.Writer) error {
 		m := map[string]interface{}{
 			"type":         t.Name.Name,
 			"plural":       plural.Name(t),
+			"pluralLower":  strings.ToLower(plural.Name(t)),
 			"version":      f.gv.Version,
+			"group":        f.gv.Group,
+			"namespaced":   namespaced(t),
 			"versionUpper": namer.IC(f.gv.Version),
 			"groupUpper":   upperLowercase(f.gv.Group),
 		}
 
 		sw.Do("func (c *version) {{.type}}() {{.type}}Controller {\n", m)
-		sw.Do("return New{{.type}}Controller({{.version}}.SchemeGroupVersion.WithKind(\"{{.type}}\"), c.controllerManager, c.client, c.informers.{{.plural}}())\n", m)
+		sw.Do("return New{{.type}}Controller(schema.GroupVersionKind{Group:\"{{.group}}\",Version:\"{{.version}}\",Kind:\"{{.type}}\"}	, \"{{.pluralLower}}\", {{.namespaced}}, c.controllerFactory)\n", m)
 		sw.Do("}\n", m)
 	}
 
@@ -97,19 +100,14 @@ func (f *groupInterfaceGo) Init(c *generator.Context, w io.Writer) error {
 }
 
 var groupInterfaceBody = `
-func New(controllerManager *generic.ControllerManager, client clientset.{{.groupUpper}}{{.versionUpper}}Interface,
-	informers informers.Interface) Interface {
+func New(controllerFactory controller.SharedControllerFactory) Interface {
 	return &version{
-		controllerManager: controllerManager,
-		client:            client,
-		informers:         informers,
+		controllerFactory: controllerFactory,
 	}
 }
 
 type version struct {
-	controllerManager *generic.ControllerManager
-	informers         informers.Interface
-	client            clientset.{{.groupUpper}}{{.versionUpper}}Interface
+	controllerFactory controller.SharedControllerFactory
 }
 
 `

@@ -17,7 +17,7 @@ import (
 	"github.com/rancher/k3s/pkg/daemons/config"
 	"github.com/rancher/k3s/pkg/etcd"
 	"github.com/rancher/k3s/pkg/version"
-	"github.com/rancher/wrangler-api/pkg/generated/controllers/core"
+	"github.com/rancher/wrangler/pkg/generated/controllers/core"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

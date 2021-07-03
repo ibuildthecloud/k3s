@@ -11,10 +11,10 @@ import (
 
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
 	helmcontroller "github.com/k3s-io/helm-controller/pkg/generated/controllers/helm.cattle.io/v1"
-	batchcontroller "github.com/rancher/wrangler-api/pkg/generated/controllers/batch/v1"
-	corecontroller "github.com/rancher/wrangler-api/pkg/generated/controllers/core/v1"
-	rbaccontroller "github.com/rancher/wrangler-api/pkg/generated/controllers/rbac/v1"
 	"github.com/rancher/wrangler/pkg/apply"
+	batchcontroller "github.com/rancher/wrangler/pkg/generated/controllers/batch/v1"
+	corecontroller "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
+	rbaccontroller "github.com/rancher/wrangler/pkg/generated/controllers/rbac/v1"
 	"github.com/rancher/wrangler/pkg/objectset"
 	"github.com/rancher/wrangler/pkg/relatedresource"
 	batch "k8s.io/api/batch/v1"

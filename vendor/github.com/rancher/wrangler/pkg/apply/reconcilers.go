@@ -16,6 +16,7 @@ import (
 
 var (
 	defaultReconcilers = map[schema.GroupVersionKind]Reconciler{
+		v1.SchemeGroupVersion.WithKind("Secret"):         reconcileSecret,
 		v1.SchemeGroupVersion.WithKind("Service"):        reconcileService,
 		batchv1.SchemeGroupVersion.WithKind("Job"):       reconcileJob,
 		appsv1.SchemeGroupVersion.WithKind("Deployment"): reconcileDeployment,
@@ -63,6 +64,29 @@ func reconcileDeployment(oldObj, newObj runtime.Object) (bool, error) {
 	}
 
 	if !equality.Semantic.DeepEqual(oldSvc.Spec.Selector, newSvc.Spec.Selector) {
+		return false, ErrReplace
+	}
+
+	return false, nil
+}
+
+func reconcileSecret(oldObj, newObj runtime.Object) (bool, error) {
+	oldSvc, ok := oldObj.(*v1.Secret)
+	if !ok {
+		oldSvc = &v1.Secret{}
+		if err := convertObj(oldObj, oldSvc); err != nil {
+			return false, err
+		}
+	}
+	newSvc, ok := newObj.(*v1.Secret)
+	if !ok {
+		newSvc = &v1.Secret{}
+		if err := convertObj(newObj, newSvc); err != nil {
+			return false, err
+		}
+	}
+
+	if newSvc.Type != "" && oldSvc.Type != newSvc.Type {
 		return false, ErrReplace
 	}
 

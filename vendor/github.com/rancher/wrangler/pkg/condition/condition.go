@@ -128,7 +128,7 @@ func (c Cond) GetMessage(obj interface{}) string {
 }
 
 func touchTS(value reflect.Value) {
-	now := time.Now().Format(time.RFC3339)
+	now := time.Now().UTC().Format(time.RFC3339)
 	getFieldValue(value, "LastUpdateTime").SetString(now)
 }
 

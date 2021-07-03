@@ -14,31 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package generators has the generators for the client-gen utility.
 package generators
 
 import (
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	args2 "github.com/rancher/wrangler/pkg/controller-gen/args"
-	"golang.org/x/tools/imports"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/gengo/args"
 	"k8s.io/gengo/generator"
 	"k8s.io/gengo/types"
-)
-
-var (
-	underscoreRegexp = regexp.MustCompile(`([a-z])([A-Z])`)
-	goImportOpts     = &imports.Options{
-		TabWidth:  8,
-		TabIndent: true,
-		Comments:  true,
-		Fragment:  true,
-	}
 )
 
 type ClientGenerator struct {
@@ -83,7 +70,7 @@ func (cg *ClientGenerator) Packages(context *generator.Context, arguments *args.
 		}
 	}
 
-	return generator.Packages(packageList)
+	return packageList
 }
 
 func (cg *ClientGenerator) typesGroupPackage(name *types.Name, gv schema.GroupVersion, generatorArgs *args.GeneratorArgs, customArgs *args2.CustomArgs) generator.Package {
@@ -127,7 +114,7 @@ func (cg *ClientGenerator) typesGroupVersionPackage(name *types.Name, gv schema.
 }
 
 func (cg *ClientGenerator) groupPackage(group string, generatorArgs *args.GeneratorArgs, customArgs *args2.CustomArgs) generator.Package {
-	packagePath := filepath.Join(customArgs.Package, "controllers", groupPackageName(group, ""))
+	packagePath := filepath.Join(customArgs.Package, "controllers", groupPackageName(group, customArgs.Options.Groups[group].OutputControllerPackageName))
 	return Package(generatorArgs, packagePath, func(context *generator.Context) []generator.Generator {
 		return []generator.Generator{
 			FactoryGo(group, generatorArgs, customArgs),
@@ -137,7 +124,7 @@ func (cg *ClientGenerator) groupPackage(group string, generatorArgs *args.Genera
 }
 
 func (cg *ClientGenerator) groupVersionPackage(gv schema.GroupVersion, generatorArgs *args.GeneratorArgs, customArgs *args2.CustomArgs) generator.Package {
-	packagePath := filepath.Join(customArgs.Package, "controllers", groupPackageName(gv.Group, ""), gv.Version)
+	packagePath := filepath.Join(customArgs.Package, "controllers", groupPackageName(gv.Group, customArgs.Options.Groups[gv.Group].OutputControllerPackageName), gv.Version)
 
 	return Package(generatorArgs, packagePath, func(context *generator.Context) []generator.Generator {
 		generators := []generator.Generator{

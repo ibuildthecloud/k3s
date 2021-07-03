@@ -26,7 +26,7 @@ const (
 )
 
 var (
-	cnRegexp = regexp.MustCompile("^([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$")
+	cnRegexp = regexp.MustCompile("^([A-Za-z0-9:][-A-Za-z0-9_.:]*)?[A-Za-z0-9:]$")
 )
 
 type TLS struct {

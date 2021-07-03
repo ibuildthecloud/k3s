@@ -10,7 +10,7 @@ import (
 	"github.com/rancher/k3s/pkg/authenticator/hash"
 	"github.com/rancher/k3s/pkg/passwd"
 	"github.com/rancher/k3s/pkg/version"
-	coreclient "github.com/rancher/wrangler-api/pkg/generated/controllers/core/v1"
+	coreclient "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

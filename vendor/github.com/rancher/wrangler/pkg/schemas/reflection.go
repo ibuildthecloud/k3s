@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	blacklistNames = map[string]bool{
+	skippedNames = map[string]bool{
 		"links":   true,
 		"actions": true,
 	}
@@ -168,7 +168,7 @@ func (s *Schemas) importType(t reflect.Type, overrides ...reflect.Type) (*Schema
 		return s, nil
 	}
 
-	logrus.Debugf("Inspecting schema %s for %v", typeName, t)
+	logrus.Tracef("Inspecting schema %s for %v", typeName, t)
 
 	schema, err := s.newSchemaFromType(t, typeName)
 	if err != nil {
@@ -249,12 +249,12 @@ func (s *Schemas) readFields(schema *Schema, t reflect.Type) error {
 			}
 		}
 
-		if blacklistNames[fieldName] {
-			logrus.Debugf("Ignoring blacklisted field %s.%s for %v", schema.ID, fieldName, field)
+		if skippedNames[fieldName] {
+			logrus.Debugf("Ignoring skip field %s.%s for %v", schema.ID, fieldName, field)
 			continue
 		}
 
-		logrus.Debugf("Inspecting field %s.%s for %v", schema.ID, fieldName, field)
+		logrus.Tracef("Inspecting field %s.%s for %v", schema.ID, fieldName, field)
 
 		schemaField := Field{
 			CodeName: field.Name,
@@ -268,7 +268,6 @@ func (s *Schemas) readFields(schema *Schema, t reflect.Type) error {
 			fieldType = fieldType.Elem()
 		} else if fieldType.Kind() == reflect.Bool {
 			schemaField.Nullable = false
-			schemaField.Default = false
 		} else if fieldType.Kind() == reflect.Int ||
 			fieldType.Kind() == reflect.Uint32 ||
 			fieldType.Kind() == reflect.Int32 ||
@@ -277,7 +276,6 @@ func (s *Schemas) readFields(schema *Schema, t reflect.Type) error {
 			fieldType.Kind() == reflect.Float32 ||
 			fieldType.Kind() == reflect.Float64 {
 			schemaField.Nullable = false
-			schemaField.Default = 0
 		}
 
 		if err := applyTag(&field, &schemaField); err != nil {
@@ -317,7 +315,7 @@ func (s *Schemas) readFields(schema *Schema, t reflect.Type) error {
 			}
 		}
 
-		logrus.Debugf("Setting field %s.%s: %#v", schema.ID, fieldName, schemaField)
+		logrus.Tracef("Setting field %s.%s: %#v", schema.ID, fieldName, schemaField)
 		schema.ResourceFields[fieldName] = schemaField
 	}
 
@@ -362,10 +360,7 @@ func (s *Schemas) processFieldsMappers(t reflect.Type, fieldName string, schema 
 }
 
 func applyTag(structField *reflect.StructField, field *Field) error {
-	t, ok := structField.Tag.Lookup("wrangler")
-	if !ok {
-		t = structField.Tag.Get("norman")
-	}
+	t := structField.Tag.Get("wrangler")
 	for _, part := range strings.Split(t, ",") {
 		if part == "" {
 			continue

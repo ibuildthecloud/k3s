@@ -7,8 +7,8 @@ import (
 	"strconv"
 
 	"github.com/rancher/k3s/pkg/version"
-	appclient "github.com/rancher/wrangler-api/pkg/generated/controllers/apps/v1"
-	coreclient "github.com/rancher/wrangler-api/pkg/generated/controllers/core/v1"
+	appclient "github.com/rancher/wrangler/pkg/generated/controllers/apps/v1"
+	coreclient "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
 	"github.com/rancher/wrangler/pkg/apply"
 	"github.com/rancher/wrangler/pkg/condition"
 	"github.com/rancher/wrangler/pkg/objectset"

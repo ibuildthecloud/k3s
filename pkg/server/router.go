@@ -22,7 +22,7 @@ import (
 	"github.com/rancher/k3s/pkg/daemons/config"
 	"github.com/rancher/k3s/pkg/nodepassword"
 	"github.com/rancher/k3s/pkg/version"
-	coreclient "github.com/rancher/wrangler-api/pkg/generated/controllers/core/v1"
+	coreclient "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/json"
 )

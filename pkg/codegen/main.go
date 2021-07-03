@@ -75,7 +75,8 @@ func main() {
 				Types: []interface{}{
 					v1.Addon{},
 				},
-				GenerateTypes: true,
+				GenerateTypes:   true,
+				GenerateClients: true,
 			},
 		},
 	})

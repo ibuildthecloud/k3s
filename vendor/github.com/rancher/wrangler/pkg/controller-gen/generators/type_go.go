@@ -7,7 +7,6 @@ import (
 
 	args2 "github.com/rancher/wrangler/pkg/controller-gen/args"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/code-generator/cmd/client-gen/generators/util"
 	"k8s.io/gengo/args"
 	"k8s.io/gengo/generator"
 	"k8s.io/gengo/namer"
@@ -35,29 +34,9 @@ type typeGo struct {
 	customArgs *args2.CustomArgs
 }
 
-func (f *typeGo) Imports(*generator.Context) []string {
-	group := f.customArgs.Options.Groups[f.gv.Group]
-
-	packages := []string{
-		"metav1 \"k8s.io/apimachinery/pkg/apis/meta/v1\"",
-		"k8s.io/apimachinery/pkg/api/errors",
-		"k8s.io/apimachinery/pkg/labels",
-		"k8s.io/apimachinery/pkg/runtime",
-		"k8s.io/apimachinery/pkg/runtime/schema",
-		"k8s.io/apimachinery/pkg/api/equality",
-		"k8s.io/apimachinery/pkg/types",
-		"utilruntime \"k8s.io/apimachinery/pkg/util/runtime\"",
-		"k8s.io/apimachinery/pkg/watch",
-		"k8s.io/client-go/tools/cache",
-		"github.com/rancher/wrangler/pkg/apply",
-		"github.com/rancher/wrangler/pkg/condition",
-		"github.com/rancher/wrangler/pkg/kv",
-		fmt.Sprintf("%s \"%s\"", f.gv.Version, f.name.Package),
-		GenericPackage,
-		fmt.Sprintf("clientset \"%s/typed/%s/%s\"", group.ClientSetPackage, groupPackageName(f.gv.Group, group.PackageName), f.gv.Version),
-		fmt.Sprintf("informers \"%s/%s/%s\"", group.InformersPackage, groupPackageName(f.gv.Group, group.PackageName), f.gv.Version),
-		fmt.Sprintf("listers \"%s/%s/%s\"", group.ListersPackage, groupPackageName(f.gv.Group, group.PackageName), f.gv.Version),
-	}
+func (f *typeGo) Imports(context *generator.Context) []string {
+	packages := append(Imports,
+		fmt.Sprintf("%s \"%s\"", f.gv.Version, f.name.Package))
 
 	return packages
 }
@@ -75,7 +54,7 @@ func (f *typeGo) Init(c *generator.Context, w io.Writer) error {
 		"lowerName":  namer.IL(f.name.Name),
 		"plural":     plural.Name(t),
 		"version":    f.gv.Version,
-		"namespaced": !util.MustParseClientGenTags(t.SecondClosestCommentLines).NonNamespaced,
+		"namespaced": namespaced(t),
 		"hasStatus":  hasStatus(t),
 		"statusType": statusType(t),
 	}
@@ -141,18 +120,22 @@ type {{.type}}Cache interface {
 type {{.type}}Indexer func(obj *{{.version}}.{{.type}}) ([]string, error)
 
 type {{.lowerName}}Controller struct {
-	controllerManager *generic.ControllerManager
-	clientGetter      clientset.{{.plural}}Getter
-	informer          informers.{{.type}}Informer
+	controller controller.SharedController
+	client            *client.Client
 	gvk               schema.GroupVersionKind
+	groupResource     schema.GroupResource
 }
 
-func New{{.type}}Controller(gvk schema.GroupVersionKind, controllerManager *generic.ControllerManager, clientGetter clientset.{{.plural}}Getter, informer informers.{{.type}}Informer) {{.type}}Controller {
+func New{{.type}}Controller(gvk schema.GroupVersionKind, resource string, namespaced bool, controller controller.SharedControllerFactory) {{.type}}Controller {
+	c := controller.ForResourceKind(gvk.GroupVersion().WithResource(resource), gvk.Kind, namespaced)
 	return &{{.lowerName}}Controller{
-		controllerManager: controllerManager,
-		clientGetter:      clientGetter,
-		informer:          informer,
-		gvk:               gvk,
+		controller: c,
+		client:     c.Client(),
+		gvk:        gvk,
+		groupResource: schema.GroupResource{
+			Group:    gvk.Group,
+			Resource: resource,
+		},
 	}
 }
 
@@ -199,12 +182,11 @@ func Update{{.type}}DeepCopyOnChange(client {{.type}}Client, obj *{{.version}}.{
 }
 
 func (c *{{.lowerName}}Controller) AddGenericHandler(ctx context.Context, name string, handler generic.Handler) {
-	c.controllerManager.AddHandler(ctx, c.gvk, c.informer.Informer(), name, handler)
+	c.controller.RegisterHandler(ctx, name, controller.SharedControllerHandlerFunc(handler))
 }
 
 func (c *{{.lowerName}}Controller) AddGenericRemoveHandler(ctx context.Context, name string, handler generic.Handler) {
-	removeHandler := generic.NewRemoveHandler(name, c.Updater(), handler)
-	c.controllerManager.AddHandler(ctx, c.gvk, c.informer.Informer(), name, removeHandler)
+	c.AddGenericHandler(ctx, name, generic.NewRemoveHandler(name, c.Updater(), handler))
 }
 
 func (c *{{.lowerName}}Controller) OnChange(ctx context.Context, name string, sync {{.type}}Handler) {
@@ -212,20 +194,19 @@ func (c *{{.lowerName}}Controller) OnChange(ctx context.Context, name string, sy
 }
 
 func (c *{{.lowerName}}Controller) OnRemove(ctx context.Context, name string, sync {{.type}}Handler) {
-	removeHandler := generic.NewRemoveHandler(name, c.Updater(), From{{.type}}HandlerToHandler(sync))
-	c.AddGenericHandler(ctx, name, removeHandler)
+	c.AddGenericHandler(ctx, name, generic.NewRemoveHandler(name, c.Updater(), From{{.type}}HandlerToHandler(sync)))
 }
 
 func (c *{{.lowerName}}Controller) Enqueue({{ if .namespaced}}namespace, {{end}}name string) {
-	c.controllerManager.Enqueue(c.gvk, c.informer.Informer(), {{ if .namespaced }}namespace, {{else}}"", {{end}}name)
+	c.controller.Enqueue({{ if .namespaced }}namespace, {{else}}"", {{end}}name)
 }
 
 func (c *{{.lowerName}}Controller) EnqueueAfter({{ if .namespaced}}namespace, {{end}}name string, duration time.Duration) {
-	c.controllerManager.EnqueueAfter(c.gvk, c.informer.Informer(), {{ if .namespaced }}namespace, {{else}}"", {{end}}name, duration)
+	c.controller.EnqueueAfter({{ if .namespaced }}namespace, {{else}}"", {{end}}name, duration)
 }
 
 func (c *{{.lowerName}}Controller) Informer() cache.SharedIndexInformer {
-	return c.informer.Informer()
+	return c.controller.Informer()
 }
 
 func (c *{{.lowerName}}Controller) GroupVersionKind() schema.GroupVersionKind {
@@ -234,22 +215,25 @@ func (c *{{.lowerName}}Controller) GroupVersionKind() schema.GroupVersionKind {
 
 func (c *{{.lowerName}}Controller) Cache() {{.type}}Cache {
 	return &{{.lowerName}}Cache{
-		lister:  c.informer.Lister(),
-		indexer: c.informer.Informer().GetIndexer(),
+		indexer:  c.Informer().GetIndexer(),
+		resource: c.groupResource,
 	}
 }
 
 func (c *{{.lowerName}}Controller) Create(obj *{{.version}}.{{.type}}) (*{{.version}}.{{.type}}, error) {
-	return c.clientGetter.{{.plural}}({{ if .namespaced}}obj.Namespace{{end}}).Create(context.TODO(), obj, metav1.CreateOptions{})
+	result := &{{.version}}.{{.type}}{}
+	return result, c.client.Create(context.TODO(), {{ if .namespaced}}obj.Namespace,{{else}}"",{{end}} obj, result, metav1.CreateOptions{})
 }
 
 func (c *{{.lowerName}}Controller) Update(obj *{{.version}}.{{.type}}) (*{{.version}}.{{.type}}, error) {
-	return c.clientGetter.{{.plural}}({{ if .namespaced}}obj.Namespace{{end}}).Update(context.TODO(), obj, metav1.UpdateOptions{})
+	result := &{{.version}}.{{.type}}{}
+	return result, c.client.Update(context.TODO(), {{ if .namespaced}}obj.Namespace,{{else}}"",{{end}} obj, result, metav1.UpdateOptions{})
 }
 
 {{ if .hasStatus -}}
 func (c *{{.lowerName}}Controller) UpdateStatus(obj *{{.version}}.{{.type}}) (*{{.version}}.{{.type}}, error) {
-	return c.clientGetter.{{.plural}}({{ if .namespaced}}obj.Namespace{{end}}).UpdateStatus(context.TODO(), obj, metav1.UpdateOptions{})
+	result := &{{.version}}.{{.type}}{}
+	return result, c.client.UpdateStatus(context.TODO(), {{ if .namespaced}}obj.Namespace,{{else}}"",{{end}} obj, result, metav1.UpdateOptions{})
 }
 {{- end }}
 
@@ -257,36 +241,55 @@ func (c *{{.lowerName}}Controller) Delete({{ if .namespaced}}namespace, {{end}}n
 	if options == nil {
 		options = &metav1.DeleteOptions{}
 	}
-	return c.clientGetter.{{.plural}}({{ if .namespaced}}namespace{{end}}).Delete(context.TODO(), name, *options)
+	return c.client.Delete(context.TODO(), {{ if .namespaced}}namespace,{{else}}"",{{end}} name, *options)
 }
 
 func (c *{{.lowerName}}Controller) Get({{ if .namespaced}}namespace, {{end}}name string, options metav1.GetOptions) (*{{.version}}.{{.type}}, error) {
-	return c.clientGetter.{{.plural}}({{ if .namespaced}}namespace{{end}}).Get(context.TODO(), name, options)
+	result := &{{.version}}.{{.type}}{}
+	return result, c.client.Get(context.TODO(), {{ if .namespaced}}namespace,{{else}}"",{{end}} name, result, options)
 }
 
 func (c *{{.lowerName}}Controller) List({{ if .namespaced}}namespace string, {{end}}opts metav1.ListOptions) (*{{.version}}.{{.type}}List, error) {
-	return c.clientGetter.{{.plural}}({{ if .namespaced}}namespace{{end}}).List(context.TODO(), opts)
+	result := &{{.version}}.{{.type}}List{}
+	return result, c.client.List(context.TODO(), {{ if .namespaced}}namespace,{{else}}"",{{end}} result, opts)
 }
 
 func (c *{{.lowerName}}Controller) Watch({{ if .namespaced}}namespace string, {{end}}opts metav1.ListOptions) (watch.Interface, error) {
-	return c.clientGetter.{{.plural}}({{ if .namespaced}}namespace{{end}}).Watch(context.TODO(), opts)
+	return c.client.Watch(context.TODO(), {{ if .namespaced}}namespace,{{else}}"",{{end}} opts)
 }
 
-func (c *{{.lowerName}}Controller) Patch({{ if .namespaced}}namespace, {{end}}name string, pt types.PatchType, data []byte, subresources ...string) (result *{{.version}}.{{.type}}, err error) {
-	return c.clientGetter.{{.plural}}({{ if .namespaced}}namespace{{end}}).Patch(context.TODO(), name, pt, data, metav1.PatchOptions{}, subresources...)
+func (c *{{.lowerName}}Controller) Patch({{ if .namespaced}}namespace, {{end}}name string, pt types.PatchType, data []byte, subresources ...string) (*{{.version}}.{{.type}}, error) {
+	result := &{{.version}}.{{.type}}{}
+	return result, c.client.Patch(context.TODO(), {{ if .namespaced}}namespace,{{else}}"",{{end}} name, pt, data, result, metav1.PatchOptions{}, subresources...)
 }
 
 type {{.lowerName}}Cache struct {
-	lister  listers.{{.type}}Lister
-	indexer cache.Indexer
+	indexer  cache.Indexer
+	resource schema.GroupResource
 }
 
 func (c *{{.lowerName}}Cache) Get({{ if .namespaced}}namespace, {{end}}name string) (*{{.version}}.{{.type}}, error) {
-	return c.lister.{{ if .namespaced}}{{.plural}}(namespace).{{end}}Get(name)
+	obj, exists, err := c.indexer.GetByKey({{ if .namespaced }}namespace + "/" + {{end}}name)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(c.resource, name)
+	}
+	return obj.(*{{.version}}.{{.type}}), nil
 }
 
-func (c *{{.lowerName}}Cache) List({{ if .namespaced}}namespace string, {{end}}selector labels.Selector) ([]*{{.version}}.{{.type}}, error) {
-	return c.lister.{{ if .namespaced}}{{.plural}}(namespace).{{end}}List(selector)
+func (c *{{.lowerName}}Cache) List({{ if .namespaced}}namespace string, {{end}}selector labels.Selector) (ret []*{{.version}}.{{.type}}, err error) {
+	{{ if .namespaced }}
+	err = cache.ListAllByNamespace(c.indexer, namespace, selector, func(m interface{}) {
+		ret = append(ret, m.(*{{.version}}.{{.type}}))
+	})
+	{{else}}
+	err = cache.ListAll(c.indexer, selector, func(m interface{}) {
+		ret = append(ret, m.(*{{.version}}.{{.type}}))
+	})
+	{{end}}
+	return ret, err
 }
 
 func (c *{{.lowerName}}Cache) AddIndexer(indexName string, indexer {{.type}}Indexer) {
@@ -365,11 +368,19 @@ func (a *{{.lowerName}}StatusHandler) sync(key string, obj *{{.version}}.{{.type
 		}
 	}
 	if !equality.Semantic.DeepEqual(origStatus, &newStatus) {
+		if a.condition != "" {
+			// Since status has changed, update the lastUpdatedTime
+			a.condition.LastUpdated(&newStatus, time.Now().UTC().Format(time.RFC3339))
+		}
+
 		var newErr error
 		obj.Status = newStatus
-		obj, newErr = a.client.UpdateStatus(obj)
+		newObj, newErr := a.client.UpdateStatus(obj)
 		if err == nil {
 			err = newErr
+		}
+		if newErr == nil {
+			obj = newObj
 		}
 	}
 	return obj, err
@@ -399,6 +410,10 @@ func (a *{{.lowerName}}GeneratingHandler) Remove(key string, obj *{{.version}}.{
 }
 
 func (a *{{.lowerName}}GeneratingHandler) Handle(obj *{{.version}}.{{.type}}, status {{.version}}.{{.statusType}}) ({{.version}}.{{.statusType}}, error) {
+	if !obj.DeletionTimestamp.IsZero() {
+		return status, nil
+	}
+
 	objs, newStatus, err := a.{{.type}}GeneratingHandler(obj, status)
 	if err != nil {
 		return newStatus, err

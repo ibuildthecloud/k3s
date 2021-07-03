@@ -12,6 +12,14 @@ func New() Object {
 	return map[string]interface{}{}
 }
 
+func Convert(obj interface{}) (Object, error) {
+	data, err := convert.EncodeToMap(obj)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
 func (o Object) Map(names ...string) Object {
 	v := GetValueN(o, names...)
 	m := convert.ToMapInterface(v)

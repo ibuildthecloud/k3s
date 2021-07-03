@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	controllerv1 "github.com/rancher/wrangler-api/pkg/generated/controllers/core/v1"
+	controllerv1 "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 )

@@ -23,9 +23,8 @@ import (
 	"time"
 
 	v1 "github.com/rancher/k3s/pkg/apis/k3s.cattle.io/v1"
-	clientset "github.com/rancher/k3s/pkg/generated/clientset/versioned/typed/k3s.cattle.io/v1"
-	informers "github.com/rancher/k3s/pkg/generated/informers/externalversions/k3s.cattle.io/v1"
-	listers "github.com/rancher/k3s/pkg/generated/listers/k3s.cattle.io/v1"
+	"github.com/rancher/lasso/pkg/client"
+	"github.com/rancher/lasso/pkg/controller"
 	"github.com/rancher/wrangler/pkg/apply"
 	"github.com/rancher/wrangler/pkg/condition"
 	"github.com/rancher/wrangler/pkg/generic"
@@ -78,18 +77,22 @@ type AddonCache interface {
 type AddonIndexer func(obj *v1.Addon) ([]string, error)
 
 type addonController struct {
-	controllerManager *generic.ControllerManager
-	clientGetter      clientset.AddonsGetter
-	informer          informers.AddonInformer
-	gvk               schema.GroupVersionKind
+	controller    controller.SharedController
+	client        *client.Client
+	gvk           schema.GroupVersionKind
+	groupResource schema.GroupResource
 }
 
-func NewAddonController(gvk schema.GroupVersionKind, controllerManager *generic.ControllerManager, clientGetter clientset.AddonsGetter, informer informers.AddonInformer) AddonController {
+func NewAddonController(gvk schema.GroupVersionKind, resource string, namespaced bool, controller controller.SharedControllerFactory) AddonController {
+	c := controller.ForResourceKind(gvk.GroupVersion().WithResource(resource), gvk.Kind, namespaced)
 	return &addonController{
-		controllerManager: controllerManager,
-		clientGetter:      clientGetter,
-		informer:          informer,
-		gvk:               gvk,
+		controller: c,
+		client:     c.Client(),
+		gvk:        gvk,
+		groupResource: schema.GroupResource{
+			Group:    gvk.Group,
+			Resource: resource,
+		},
 	}
 }
 
@@ -136,12 +139,11 @@ func UpdateAddonDeepCopyOnChange(client AddonClient, obj *v1.Addon, handler func
 }
 
 func (c *addonController) AddGenericHandler(ctx context.Context, name string, handler generic.Handler) {
-	c.controllerManager.AddHandler(ctx, c.gvk, c.informer.Informer(), name, handler)
+	c.controller.RegisterHandler(ctx, name, controller.SharedControllerHandlerFunc(handler))
 }
 
 func (c *addonController) AddGenericRemoveHandler(ctx context.Context, name string, handler generic.Handler) {
-	removeHandler := generic.NewRemoveHandler(name, c.Updater(), handler)
-	c.controllerManager.AddHandler(ctx, c.gvk, c.informer.Informer(), name, removeHandler)
+	c.AddGenericHandler(ctx, name, generic.NewRemoveHandler(name, c.Updater(), handler))
 }
 
 func (c *addonController) OnChange(ctx context.Context, name string, sync AddonHandler) {
@@ -149,20 +151,19 @@ func (c *addonController) OnChange(ctx context.Context, name string, sync AddonH
 }
 
 func (c *addonController) OnRemove(ctx context.Context, name string, sync AddonHandler) {
-	removeHandler := generic.NewRemoveHandler(name, c.Updater(), FromAddonHandlerToHandler(sync))
-	c.AddGenericHandler(ctx, name, removeHandler)
+	c.AddGenericHandler(ctx, name, generic.NewRemoveHandler(name, c.Updater(), FromAddonHandlerToHandler(sync)))
 }
 
 func (c *addonController) Enqueue(namespace, name string) {
-	c.controllerManager.Enqueue(c.gvk, c.informer.Informer(), namespace, name)
+	c.controller.Enqueue(namespace, name)
 }
 
 func (c *addonController) EnqueueAfter(namespace, name string, duration time.Duration) {
-	c.controllerManager.EnqueueAfter(c.gvk, c.informer.Informer(), namespace, name, duration)
+	c.controller.EnqueueAfter(namespace, name, duration)
 }
 
 func (c *addonController) Informer() cache.SharedIndexInformer {
-	return c.informer.Informer()
+	return c.controller.Informer()
 }
 
 func (c *addonController) GroupVersionKind() schema.GroupVersionKind {
@@ -171,57 +172,75 @@ func (c *addonController) GroupVersionKind() schema.GroupVersionKind {
 
 func (c *addonController) Cache() AddonCache {
 	return &addonCache{
-		lister:  c.informer.Lister(),
-		indexer: c.informer.Informer().GetIndexer(),
+		indexer:  c.Informer().GetIndexer(),
+		resource: c.groupResource,
 	}
 }
 
 func (c *addonController) Create(obj *v1.Addon) (*v1.Addon, error) {
-	return c.clientGetter.Addons(obj.Namespace).Create(context.TODO(), obj, metav1.CreateOptions{})
+	result := &v1.Addon{}
+	return result, c.client.Create(context.TODO(), obj.Namespace, obj, result, metav1.CreateOptions{})
 }
 
 func (c *addonController) Update(obj *v1.Addon) (*v1.Addon, error) {
-	return c.clientGetter.Addons(obj.Namespace).Update(context.TODO(), obj, metav1.UpdateOptions{})
+	result := &v1.Addon{}
+	return result, c.client.Update(context.TODO(), obj.Namespace, obj, result, metav1.UpdateOptions{})
 }
 
 func (c *addonController) UpdateStatus(obj *v1.Addon) (*v1.Addon, error) {
-	return c.clientGetter.Addons(obj.Namespace).UpdateStatus(context.TODO(), obj, metav1.UpdateOptions{})
+	result := &v1.Addon{}
+	return result, c.client.UpdateStatus(context.TODO(), obj.Namespace, obj, result, metav1.UpdateOptions{})
 }
 
 func (c *addonController) Delete(namespace, name string, options *metav1.DeleteOptions) error {
 	if options == nil {
 		options = &metav1.DeleteOptions{}
 	}
-	return c.clientGetter.Addons(namespace).Delete(context.TODO(), name, *options)
+	return c.client.Delete(context.TODO(), namespace, name, *options)
 }
 
 func (c *addonController) Get(namespace, name string, options metav1.GetOptions) (*v1.Addon, error) {
-	return c.clientGetter.Addons(namespace).Get(context.TODO(), name, options)
+	result := &v1.Addon{}
+	return result, c.client.Get(context.TODO(), namespace, name, result, options)
 }
 
 func (c *addonController) List(namespace string, opts metav1.ListOptions) (*v1.AddonList, error) {
-	return c.clientGetter.Addons(namespace).List(context.TODO(), opts)
+	result := &v1.AddonList{}
+	return result, c.client.List(context.TODO(), namespace, result, opts)
 }
 
 func (c *addonController) Watch(namespace string, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.clientGetter.Addons(namespace).Watch(context.TODO(), opts)
+	return c.client.Watch(context.TODO(), namespace, opts)
 }
 
-func (c *addonController) Patch(namespace, name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.Addon, err error) {
-	return c.clientGetter.Addons(namespace).Patch(context.TODO(), name, pt, data, metav1.PatchOptions{}, subresources...)
+func (c *addonController) Patch(namespace, name string, pt types.PatchType, data []byte, subresources ...string) (*v1.Addon, error) {
+	result := &v1.Addon{}
+	return result, c.client.Patch(context.TODO(), namespace, name, pt, data, result, metav1.PatchOptions{}, subresources...)
 }
 
 type addonCache struct {
-	lister  listers.AddonLister
-	indexer cache.Indexer
+	indexer  cache.Indexer
+	resource schema.GroupResource
 }
 
 func (c *addonCache) Get(namespace, name string) (*v1.Addon, error) {
-	return c.lister.Addons(namespace).Get(name)
+	obj, exists, err := c.indexer.GetByKey(namespace + "/" + name)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(c.resource, name)
+	}
+	return obj.(*v1.Addon), nil
 }
 
-func (c *addonCache) List(namespace string, selector labels.Selector) ([]*v1.Addon, error) {
-	return c.lister.Addons(namespace).List(selector)
+func (c *addonCache) List(namespace string, selector labels.Selector) (ret []*v1.Addon, err error) {
+
+	err = cache.ListAllByNamespace(c.indexer, namespace, selector, func(m interface{}) {
+		ret = append(ret, m.(*v1.Addon))
+	})
+
+	return ret, err
 }
 
 func (c *addonCache) AddIndexer(indexName string, indexer AddonIndexer) {
@@ -299,11 +318,19 @@ func (a *addonStatusHandler) sync(key string, obj *v1.Addon) (*v1.Addon, error) 
 		}
 	}
 	if !equality.Semantic.DeepEqual(origStatus, &newStatus) {
+		if a.condition != "" {
+			// Since status has changed, update the lastUpdatedTime
+			a.condition.LastUpdated(&newStatus, time.Now().UTC().Format(time.RFC3339))
+		}
+
 		var newErr error
 		obj.Status = newStatus
-		obj, newErr = a.client.UpdateStatus(obj)
+		newObj, newErr := a.client.UpdateStatus(obj)
 		if err == nil {
 			err = newErr
+		}
+		if newErr == nil {
+			obj = newObj
 		}
 	}
 	return obj, err
@@ -333,6 +360,10 @@ func (a *addonGeneratingHandler) Remove(key string, obj *v1.Addon) (*v1.Addon, e
 }
 
 func (a *addonGeneratingHandler) Handle(obj *v1.Addon, status v1.AddonStatus) (v1.AddonStatus, error) {
+	if !obj.DeletionTimestamp.IsZero() {
+		return status, nil
+	}
+
 	objs, newStatus, err := a.AddonGeneratingHandler(obj, status)
 	if err != nil {
 		return newStatus, err
