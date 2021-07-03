@@ -39,7 +39,8 @@ spec:
         emptyDir: {}
       containers:
       - name: metrics-server
-        image: %{SYSTEM_DEFAULT_REGISTRY}%rancher/metrics-server:v0.3.6
+        image: %{SYSTEM_DEFAULT_REGISTRY}%rancher/mirrored-metrics-server:v0.5.0
+        args: ['--cert-dir', '/tmp']
         volumeMounts:
         - name: tmp-dir
           mountPath: /tmp

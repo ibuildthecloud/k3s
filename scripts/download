@@ -6,7 +6,7 @@ cd $(dirname $0)/..
 
 RUNC_VERSION=v1.0.0
 ROOT_VERSION=v0.9.1
-TRAEFIK_VERSION=9.18.2  # appVersion: 2.4.8
+TRAEFIK_VERSION=$(awk -F/ '/traefik-([[:digit:]]+\.)/ {sub(/traefik-/, "", $6) ; sub(/\.tgz/, "", $6); print $6}' manifests/traefik.yaml)
 CHARTS_DIR=build/static/charts
 RUNC_DIR=build/src/github.com/opencontainers/runc
 DATA_DIR=build/data
@@ -67,9 +67,10 @@ download_and_package_traefik () {
     crd_group=$(yq e '.spec.group' ${crd_yaml})
     crd_kind=$(yq e '.spec.names.kind' ${crd_yaml})
     crd_version=$(yq e '.spec.version' ${crd_yaml})
-    if [[ -z "$crd_version" ]]; then
+    if [[ -z "$crd_version" ]] || [[ "$crd_version" == "null" ]]; then
       crd_version=$(yq e '.spec.versions[0].name' ${crd_yaml})
     fi
+    echo "Found CRD with GVK ${crd_group}/${crd_version}/${crd_kind}"
     crd_apis+=("${crd_group}/${crd_version}/${crd_kind}")
   done
 
