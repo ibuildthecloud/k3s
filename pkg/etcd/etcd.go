@@ -1189,18 +1189,14 @@ func (e *ETCD) Restore(ctx context.Context) error {
 		return err
 	}
 	logrus.Infof("Pre-restore etcd database moved to %s", oldDataDir)
-	sManager := snapshot.NewV3(nil)
-	if err := sManager.Restore(snapshot.RestoreConfig{
+	return snapshot.NewV3(nil).Restore(snapshot.RestoreConfig{
 		SnapshotPath:   e.config.ClusterResetRestorePath,
 		Name:           e.name,
 		OutputDataDir:  etcdDBDir(e.config),
 		OutputWALDir:   walDir(e.config),
 		PeerURLs:       []string{e.peerURL()},
 		InitialCluster: e.name + "=" + e.peerURL(),
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
 
 // snapshotRetention iterates through the snapshots and removes the oldest
