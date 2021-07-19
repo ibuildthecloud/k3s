@@ -121,7 +121,7 @@ func controllerManager(cfg *config.Control, runtime *config.ControlRuntime) erro
 		argsMap["controllers"] = "*,-service,-route,-cloud-node-lifecycle"
 	}
 
-	args := config.GetArgsList(argsMap, cfg.ExtraControllerArgs)
+	args := config.GetArgs(argsMap, cfg.ExtraControllerArgs)
 	logrus.Infof("Running kube-controller-manager %s", config.ArgString(args))
 
 	return executor.ControllerManager(runtime.APIServerReady, args)
@@ -139,7 +139,7 @@ func scheduler(cfg *config.Control, runtime *config.ControlRuntime) error {
 	if cfg.NoLeaderElect {
 		argsMap["leader-elect"] = "false"
 	}
-	args := config.GetArgsList(argsMap, cfg.ExtraSchedulerAPIArgs)
+	args := config.GetArgs(argsMap, cfg.ExtraSchedulerAPIArgs)
 
 	logrus.Infof("Running kube-scheduler %s", config.ArgString(args))
 	return executor.Scheduler(runtime.APIServerReady, args)
@@ -192,7 +192,7 @@ func apiServer(ctx context.Context, cfg *config.Control, runtime *config.Control
 	if cfg.EncryptSecrets {
 		argsMap["encryption-provider-config"] = runtime.EncryptionConfig
 	}
-	args := config.GetArgsList(argsMap, cfg.ExtraAPIArgs)
+	args := config.GetArgs(argsMap, cfg.ExtraAPIArgs)
 
 	logrus.Infof("Running kube-apiserver %s", config.ArgString(args))
 
@@ -302,7 +302,7 @@ func cloudControllerManager(ctx context.Context, cfg *config.Control, runtime *c
 	if cfg.NoLeaderElect {
 		argsMap["leader-elect"] = "false"
 	}
-	args := config.GetArgsList(argsMap, cfg.ExtraCloudControllerArgs)
+	args := config.GetArgs(argsMap, cfg.ExtraCloudControllerArgs)
 
 	logrus.Infof("Running cloud-controller-manager %s", config.ArgString(args))
 
