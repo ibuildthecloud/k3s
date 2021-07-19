@@ -134,7 +134,7 @@ func kubeletArgs(cfg *config.Agent) map[string]string {
 		logrus.Warn("Disabling pod PIDs limit feature due to missing cgroup pids support")
 		argsMap["cgroups-per-qos"] = "false"
 		argsMap["enforce-node-allocatable"] = ""
-		argsMap["feature-gates"] = addFeatureGate(argsMap["feature-gates"], "SupportPodPidsLimit=false")
+		argsMap["feature-gates"] = AddFeatureGate(argsMap["feature-gates"], "SupportPodPidsLimit=false")
 	}
 	if kubeletRoot != "" {
 		argsMap["kubelet-cgroups"] = kubeletRoot
@@ -143,7 +143,7 @@ func kubeletArgs(cfg *config.Agent) map[string]string {
 		argsMap["runtime-cgroups"] = runtimeRoot
 	}
 	if system.RunningInUserNS() {
-		argsMap["feature-gates"] = addFeatureGate(argsMap["feature-gates"], "DevicePlugins=false")
+		argsMap["feature-gates"] = AddFeatureGate(argsMap["feature-gates"], "DevicePlugins=false")
 	}
 
 	argsMap["node-labels"] = strings.Join(cfg.NodeLabels, ",")
@@ -156,7 +156,7 @@ func kubeletArgs(cfg *config.Agent) map[string]string {
 
 	if ImageCredProvAvailable(cfg) {
 		logrus.Infof("Kubelet image credential provider bin dir and configuration file found.")
-		argsMap["feature-gates"] = addFeatureGate(argsMap["feature-gates"], "KubeletCredentialProviders=true")
+		argsMap["feature-gates"] = AddFeatureGate(argsMap["feature-gates"], "KubeletCredentialProviders=true")
 		argsMap["image-credential-provider-bin-dir"] = cfg.ImageCredProvBinDir
 		argsMap["image-credential-provider-config"] = cfg.ImageCredProvConfig
 	}

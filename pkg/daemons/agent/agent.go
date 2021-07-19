@@ -50,7 +50,8 @@ func startKubelet(cfg *config.Agent) error {
 	return executor.Kubelet(args)
 }
 
-func addFeatureGate(current, new string) string {
+// AddFeatureGate correctly appends a feature gate key pair to the feature gates CLI switch.
+func AddFeatureGate(current, new string) string {
 	if current == "" {
 		return new
 	}
