@@ -258,10 +258,13 @@ func (a ArgString) String() string {
 	return b.String()
 }
 
-func GetArgsList(argsMap map[string]string, extraArgs []string) []string {
+// GetArgs appends extra arguments to existing arguments overriding any default options.
+func GetArgs(argsMap map[string]string, extraArgs []string) []string {
+	const hyphens = "--"
+
 	// add extra args to args map to override any default option
 	for _, arg := range extraArgs {
-		splitArg := strings.SplitN(arg, "=", 2)
+		splitArg := strings.SplitN(strings.TrimPrefix(arg,hyphens), "=", 2)
 		if len(splitArg) < 2 {
 			argsMap[splitArg[0]] = "true"
 			continue
@@ -270,7 +273,7 @@ func GetArgsList(argsMap map[string]string, extraArgs []string) []string {
 	}
 	var args []string
 	for arg, value := range argsMap {
-		cmd := fmt.Sprintf("--%s=%s", arg, value)
+		cmd := fmt.Sprintf("--%s=%s", strings.TrimPrefix(arg,hyphens), value)
 		args = append(args, cmd)
 	}
 	sort.Strings(args)
