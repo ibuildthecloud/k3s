@@ -256,6 +256,7 @@ setup_env() {
     elif [ "${HAS_OPENRC}" = true ]; then
         $SUDO mkdir -p /etc/rancher/k3s
         FILE_K3S_SERVICE=/etc/init.d/${SYSTEM_NAME}
+        FILE_K3S_CONFD=/etc/conf.d/${SYSTEM_NAME}
         FILE_K3S_ENV=/etc/rancher/k3s/${SYSTEM_NAME}.env
     fi
 
@@ -664,6 +665,7 @@ if command -v rc-update; then
 fi
 
 rm -f ${FILE_K3S_SERVICE}
+rm -f ${FILE_K3S_CONFD}
 rm -f ${FILE_K3S_ENV}
 
 remove_uninstall() {
@@ -774,6 +776,7 @@ supervisor=supervise-daemon
 name=${SYSTEM_NAME}
 command="${BIN_DIR}/k3s"
 command_args="$(escape_dq "${CMD_K3S_EXEC}")
+    $k3s_server_args \
     >>${LOG_FILE} 2>&1"
 
 output_log=${LOG_FILE}
@@ -789,6 +792,14 @@ if [ -f ${FILE_K3S_ENV} ]; then source ${FILE_K3S_ENV}; fi
 set +o allexport
 EOF
     $SUDO chmod 0755 ${FILE_K3S_SERVICE}
+
+    $SUDO tee ${FILE_K3S_CONFD} >/dev/null << EOF
+# conf.d file for k3s
+
+# use this to set additional k3s server args
+k3s_server_args=""
+EOF
+    $SUDO chmod 0755 ${FILE_K3S_CONFD}
 
     $SUDO tee /etc/logrotate.d/${SYSTEM_NAME} >/dev/null << EOF
 ${LOG_FILE} {
