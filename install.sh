@@ -836,6 +836,11 @@ openrc_start() {
 
 # --- startup systemd or openrc service ---
 service_enable_and_start() {
+    if [ -f "/proc/cgroups" ] && [ "$(grep memory /proc/cgroups | awk '{ print $4 }')" -eq 0 ];
+    then
+        info "Failed to find memory cgroup, you may need to add \"cgroup_memory=1 cgroup_enable=memory\" to your linux cmdline (/boot/cmdline.txt on a Raspberry Pi)"
+    fi
+    
     [ "${INSTALL_K3S_SKIP_ENABLE}" = true ] && return
 
     [ "${HAS_SYSTEMD}" = true ] && systemd_enable
