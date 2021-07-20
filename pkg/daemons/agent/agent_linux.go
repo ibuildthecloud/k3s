@@ -107,6 +107,13 @@ func kubeletArgs(cfg *config.Agent) map[string]string {
 	} else if cfg.PauseImage != "" {
 		argsMap["pod-infra-container-image"] = cfg.PauseImage
 	}
+	if cfg.ImageServiceSocket != "" {
+		if strings.HasPrefix(cfg.ImageServiceSocket, unixPrefix) {
+			argsMap["image-service-endpoint"] = cfg.ImageServiceSocket
+		} else {
+			argsMap["image-service-endpoint"] = unixPrefix + cfg.ImageServiceSocket
+		}
+	}
 	if cfg.ListenAddress != "" {
 		argsMap["address"] = cfg.ListenAddress
 	}

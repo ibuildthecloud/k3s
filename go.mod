@@ -69,12 +69,13 @@ require (
 	github.com/Microsoft/hcsshim v0.8.10-0.20200715222032-5eafd1556990
 	github.com/bronze1man/goStrongswanVici v0.0.0-20190828090544-27d02f80ba40 // indirect
 	github.com/containerd/cgroups v0.0.0-20200710171044-318312a37340
-	github.com/containerd/containerd v1.5.0-beta.4
+	github.com/containerd/containerd v1.5.2
 	github.com/containerd/cri v1.11.1-0.20200820101445-b0cc07999aa5
 	github.com/containerd/fuse-overlayfs-snapshotter v1.0.2
+	github.com/containerd/stargz-snapshotter v0.6.4
 	github.com/coreos/go-iptables v0.4.5
 	github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f
-	github.com/docker/docker v20.10.5+incompatible
+	github.com/docker/docker v20.10.6+incompatible
 	github.com/erikdubbelboer/gspt v0.0.0-20190125194910-e68493906b83
 	github.com/flannel-io/flannel v0.14.0
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
@@ -86,7 +87,7 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/k3s-io/helm-controller v0.10.1
 	github.com/k3s-io/kine v0.6.2
-	github.com/klauspost/compress v1.12.2
+	github.com/klauspost/compress v1.12.3
 	github.com/kubernetes-sigs/cri-tools v0.0.0-00010101000000-000000000000
 	github.com/lib/pq v1.8.0
 	github.com/mattn/go-sqlite3 v1.14.4

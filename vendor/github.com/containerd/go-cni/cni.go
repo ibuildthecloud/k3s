@@ -30,11 +30,11 @@ import (
 
 type CNI interface {
 	// Setup setup the network for the namespace
-	Setup(ctx context.Context, id string, path string, opts ...NamespaceOpts) (*CNIResult, error)
+	Setup(ctx context.Context, id string, path string, opts ...NamespaceOpts) (*Result, error)
 	// Remove tears down the network of the namespace.
 	Remove(ctx context.Context, id string, path string, opts ...NamespaceOpts) error
 	// Load loads the cni network config
-	Load(opts ...CNIOpt) error
+	Load(opts ...Opt) error
 	// Status checks the status of the cni initialization
 	Status() error
 	// GetConfig returns a copy of the CNI plugin configurations as parsed by CNI
@@ -93,7 +93,7 @@ func defaultCNIConfig() *libcni {
 }
 
 // New creates a new libcni instance.
-func New(config ...CNIOpt) (CNI, error) {
+func New(config ...Opt) (CNI, error) {
 	cni := defaultCNIConfig()
 	var err error
 	for _, c := range config {
@@ -105,7 +105,7 @@ func New(config ...CNIOpt) (CNI, error) {
 }
 
 // Load loads the latest config from cni config files.
-func (c *libcni) Load(opts ...CNIOpt) error {
+func (c *libcni) Load(opts ...Opt) error {
 	var err error
 	c.Lock()
 	defer c.Unlock()
@@ -139,8 +139,8 @@ func (c *libcni) Networks() []*Network {
 	return append([]*Network{}, c.networks...)
 }
 
-// Setup setups the network in the namespace
-func (c *libcni) Setup(ctx context.Context, id string, path string, opts ...NamespaceOpts) (*CNIResult, error) {
+// Setup setups the network in the namespace and returns a Result
+func (c *libcni) Setup(ctx context.Context, id string, path string, opts ...NamespaceOpts) (*Result, error) {
 	if err := c.Status(); err != nil {
 		return nil, err
 	}
@@ -148,6 +148,14 @@ func (c *libcni) Setup(ctx context.Context, id string, path string, opts ...Name
 	if err != nil {
 		return nil, err
 	}
+	result, err := c.attachNetworks(ctx, ns)
+	if err != nil {
+		return nil, err
+	}
+	return c.createResult(result)
+}
+
+func (c *libcni) attachNetworks(ctx context.Context, ns *Namespace) ([]*current.Result, error) {
 	var results []*current.Result
 	for _, network := range c.Networks() {
 		r, err := network.Attach(ctx, ns)
@@ -156,7 +164,7 @@ func (c *libcni) Setup(ctx context.Context, id string, path string, opts ...Name
 		}
 		results = append(results, r)
 	}
-	return c.GetCNIResultFromResults(results)
+	return results, nil
 }
 
 // Remove removes the network config from the namespace

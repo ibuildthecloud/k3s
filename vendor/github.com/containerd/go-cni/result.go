@@ -29,7 +29,17 @@ type IPConfig struct {
 	Gateway net.IP
 }
 
-type CNIResult struct {
+// Result contains the network information returned by CNI.Setup
+//
+// a) Interfaces list. Depending on the plugin, this can include the sandbox
+//    (eg, container or hypervisor) interface name and/or the host interface
+//    name, the hardware addresses of each interface, and details about the
+//    sandbox (if any) the interface is in.
+// b) IP configuration assigned to each  interface. The IPv4 and/or IPv6 addresses,
+//    gateways, and routes assigned to sandbox and/or host interfaces.
+// c) DNS information. Dictionary that includes DNS information for nameservers,
+//     domain, search domains and options.
+type Result struct {
 	Interfaces map[string]*Config
 	DNS        []types.DNS
 	Routes     []*types.Route
@@ -41,23 +51,14 @@ type Config struct {
 	Sandbox   string
 }
 
-// GetCNIResultFromResults returns a structured data containing the
-// interface configuration for each of the interfaces created in the namespace.
-// Conforms with
-// Result:
-// a) Interfaces list. Depending on the plugin, this can include the sandbox
-// (eg, container or hypervisor) interface name and/or the host interface
-// name, the hardware addresses of each interface, and details about the
-// sandbox (if any) the interface is in.
-// b) IP configuration assigned to each  interface. The IPv4 and/or IPv6 addresses,
-// gateways, and routes assigned to sandbox and/or host interfaces.
-// c) DNS information. Dictionary that includes DNS information for nameservers,
-// domain, search domains and options.
-func (c *libcni) GetCNIResultFromResults(results []*current.Result) (*CNIResult, error) {
+// createResult creates a Result from the given slice of current.Result, adding
+// structured data containing the interface configuration for each of the
+// interfaces created in the namespace. It returns an error if validation of
+// results fails, or if a network could not be found.
+func (c *libcni) createResult(results []*current.Result) (*Result, error) {
 	c.RLock()
 	defer c.RUnlock()
-
-	r := &CNIResult{
+	r := &Result{
 		Interfaces: make(map[string]*Config),
 	}
 

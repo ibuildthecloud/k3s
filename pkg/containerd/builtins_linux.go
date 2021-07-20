@@ -26,4 +26,5 @@ import (
 	_ "github.com/containerd/containerd/snapshots/native"
 	_ "github.com/containerd/containerd/snapshots/overlay"
 	_ "github.com/containerd/fuse-overlayfs-snapshotter/plugin"
+	_ "github.com/containerd/stargz-snapshotter/service/plugin"
 )

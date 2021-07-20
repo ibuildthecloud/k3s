@@ -1,6 +1,9 @@
-[![Build Status](https://travis-ci.org/containerd/go-cni.svg?branch=master)](https://travis-ci.org/containerd/go-cni) [![GoDoc](https://godoc.org/github.com/containerd/go-cni?status.svg)](https://godoc.org/github.com/containerd/go-cni)
-
 # go-cni
+
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/containerd/go-cni)](https://pkg.go.dev/github.com/containerd/go-cni)
+[![Build Status](https://github.com/containerd/go-cni/workflows/CI/badge.svg)](https://github.com/containerd/go-cni/actions?query=workflow%3ACI)
+[![codecov](https://codecov.io/gh/containerd/go-cni/branch/master/graph/badge.svg)](https://codecov.io/gh/containerd/go-cni)
+[![Go Report Card](https://goreportcard.com/badge/github.com/containerd/go-cni)](https://goreportcard.com/report/github.com/containerd/go-cni)
 
 A generic CNI library to provide APIs for CNI plugin interactions. The library provides APIs to:
 

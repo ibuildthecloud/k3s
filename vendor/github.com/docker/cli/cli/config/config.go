@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/docker/cli/cli/config/credentials"
@@ -23,17 +24,44 @@ const (
 )
 
 var (
-	configDir = os.Getenv("DOCKER_CONFIG")
+	initConfigDir = new(sync.Once)
+	configDir     string
+	homeDir       string
 )
 
-func init() {
+// resetHomeDir is used in testing to reset the "homeDir" package variable to
+// force re-lookup of the home directory between tests.
+func resetHomeDir() {
+	homeDir = ""
+}
+
+func getHomeDir() string {
+	if homeDir == "" {
+		homeDir = homedir.Get()
+	}
+	return homeDir
+}
+
+// resetConfigDir is used in testing to reset the "configDir" package variable
+// and its sync.Once to force re-lookup between tests.
+func resetConfigDir() {
+	configDir = ""
+	initConfigDir = new(sync.Once)
+}
+
+func setConfigDir() {
+	if configDir != "" {
+		return
+	}
+	configDir = os.Getenv("DOCKER_CONFIG")
 	if configDir == "" {
-		configDir = filepath.Join(homedir.Get(), configFileDir)
+		configDir = filepath.Join(getHomeDir(), configFileDir)
 	}
 }
 
 // Dir returns the directory the configuration file is stored in
 func Dir() string {
+	initConfigDir.Do(setConfigDir)
 	return configDir
 }
 
@@ -76,10 +104,15 @@ func LoadFromReader(configData io.Reader) (*configfile.ConfigFile, error) {
 	return &configFile, err
 }
 
+// TODO remove this temporary hack, which is used to warn about the deprecated ~/.dockercfg file
+var printLegacyFileWarning bool
+
 // Load reads the configuration files in the given directory, and sets up
 // the auth config information and returns values.
 // FIXME: use the internal golang config parser
 func Load(configDir string) (*configfile.ConfigFile, error) {
+	printLegacyFileWarning = false
+
 	if configDir == "" {
 		configDir = Dir()
 	}
@@ -88,11 +121,7 @@ func Load(configDir string) (*configfile.ConfigFile, error) {
 	configFile := configfile.New(filename)
 
 	// Try happy path first - latest config file
-	if _, err := os.Stat(filename); err == nil {
-		file, err := os.Open(filename)
-		if err != nil {
-			return configFile, errors.Wrap(err, filename)
-		}
+	if file, err := os.Open(filename); err == nil {
 		defer file.Close()
 		err = configFile.LoadFromReader(file)
 		if err != nil {
@@ -106,22 +135,13 @@ func Load(configDir string) (*configfile.ConfigFile, error) {
 	}
 
 	// Can't find latest config file so check for the old one
-	homedir, err := os.UserHomeDir()
-	if err != nil {
-		return configFile, errors.Wrap(err, oldConfigfile)
-	}
-	confFile := filepath.Join(homedir, oldConfigfile)
-	if _, err := os.Stat(confFile); err != nil {
-		return configFile, nil //missing file is not an error
-	}
-	file, err := os.Open(confFile)
-	if err != nil {
-		return configFile, errors.Wrap(err, filename)
-	}
-	defer file.Close()
-	err = configFile.LegacyLoadFromReader(file)
-	if err != nil {
-		return configFile, errors.Wrap(err, filename)
+	filename = filepath.Join(getHomeDir(), oldConfigfile)
+	if file, err := os.Open(filename); err == nil {
+		printLegacyFileWarning = true
+		defer file.Close()
+		if err := configFile.LegacyLoadFromReader(file); err != nil {
+			return configFile, errors.Wrap(err, filename)
+		}
 	}
 	return configFile, nil
 }
@@ -132,6 +152,9 @@ func LoadDefaultConfigFile(stderr io.Writer) *configfile.ConfigFile {
 	configFile, err := Load(Dir())
 	if err != nil {
 		fmt.Fprintf(stderr, "WARNING: Error loading config file: %v\n", err)
+	}
+	if printLegacyFileWarning {
+		_, _ = fmt.Fprintln(stderr, "WARNING: Support for the legacy ~/.dockercfg configuration file and file-format is deprecated and will be removed in an upcoming release")
 	}
 	if !configFile.ContainsAuth() {
 		configFile.CredentialsStore = credentials.DetectDefaultStore(configFile.CredentialsStore)

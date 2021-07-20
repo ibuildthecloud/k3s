@@ -76,6 +76,7 @@ type Agent struct {
 	NodeExternalIP          string
 	NodeExternalIPs         []net.IP
 	RuntimeSocket           string
+	ImageServiceSocket      string
 	ListenAddress           string
 	ClientCA                string
 	CNIBinDir               string

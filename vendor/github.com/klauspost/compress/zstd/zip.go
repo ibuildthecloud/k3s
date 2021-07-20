@@ -13,8 +13,9 @@ import (
 // See https://www.winzip.com/win/en/comp_info.html
 const ZipMethodWinZip = 93
 
-// ZipMethodPKWare is the method number used by PKWARE to indicate Zstandard compression.
-// See https://pkware.cachefly.net/webdocs/APPNOTE/APPNOTE-6.3.7.TXT
+// ZipMethodPKWare is the original method number used by PKWARE to indicate Zstandard compression.
+// Deprecated: This has been deprecated by PKWARE, use ZipMethodWinZip instead for compression.
+// See https://pkware.cachefly.net/webdocs/APPNOTE/APPNOTE-6.3.9.TXT
 const ZipMethodPKWare = 20
 
 var zipReaderPool sync.Pool

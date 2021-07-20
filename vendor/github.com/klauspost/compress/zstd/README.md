@@ -16,8 +16,7 @@ Currently the package is heavily optimized for 64 bit processors and will be sig
 
 Install using `go get -u github.com/klauspost/compress`. The package is located in `github.com/klauspost/compress/zstd`.
 
-Godoc Documentation: https://godoc.org/github.com/klauspost/compress/zstd
-
+[![Go Reference](https://pkg.go.dev/badge/github.com/klauspost/compress/zstd.svg)](https://pkg.go.dev/github.com/klauspost/compress/zstd)
 
 ## Compressor
 
@@ -405,12 +404,27 @@ BenchmarkDecoder_DecodeAllParallelCgo/comp-data.bin.zst-16        749938        
 
 This reflects the performance around May 2020, but this may be out of date.
 
+## Zstd inside ZIP files
+
+It is possible to use zstandard to compress individual files inside zip archives.
+While this isn't widely supported it can be useful for internal files.
+
+To support the compression and decompression of these files you must register a compressor and decompressor.
+
+It is highly recommended registering the (de)compressors on individual zip Reader/Writer and NOT
+use the global registration functions. The main reason for this is that 2 registrations from 
+different packages will result in a panic.
+
+It is a good idea to only have a single compressor and decompressor, since they can be used for multiple zip
+files concurrently, and using a single instance will allow reusing some resources.
+
+See [this example](https://pkg.go.dev/github.com/klauspost/compress/zstd#example-ZipCompressor) for 
+how to compress and decompress files inside zip archives.
+
 # Contributions
 
 Contributions are always welcome. 
 For new features/fixes, remember to add tests and for performance enhancements include benchmarks.
-
-For sending files for reproducing errors use a service like [goobox](https://goobox.io/#/upload) or similar to share your files.
 
 For general feedback and experience reports, feel free to open an issue or write me on [Twitter](https://twitter.com/sh0dan).
 

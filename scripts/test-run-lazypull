@@ -1,0 +1,134 @@
+#!/bin/bash
+
+all_services=(
+    coredns
+    local-path-provisioner
+    metrics-server
+    traefik
+)
+
+export NUM_SERVERS=1
+export NUM_AGENTS=1
+export WAIT_SERVICES="${all_services[@]}"
+export SERVER_ARGS="--node-taint=CriticalAddonsOnly=true:NoExecute"
+
+# ---
+
+cluster-pre-hook() {
+  export SERVER_ARGS="${SERVER_ARGS}
+    --snapshotter=stargz
+  "
+  export AGENT_ARGS="${AGENT_ARGS}
+    --snapshotter=stargz
+  "
+}
+export -f cluster-pre-hook
+
+# ---
+
+start-test() {
+    local REMOTE_SNAPSHOT_LABEL="containerd.io/snapshot/remote"
+    local TEST_IMAGE="ghcr.io/stargz-containers/k3s-test-ubuntu:20.04-esgz"
+    local TEST_POD_NAME=testpod-$(head /dev/urandom | tr -dc a-z0-9 | head -c 10)
+    local TEST_CONTAINER_NAME=testcontainer-$(head /dev/urandom | tr -dc a-z0-9 | head -c 10)
+
+    # Create the target Pod
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ${TEST_POD_NAME}
+spec:
+  containers:
+  - name: ${TEST_CONTAINER_NAME}
+    image: ${TEST_IMAGE}
+    command: ["sleep"]
+    args: ["infinity"]
+EOF
+    wait-for-pod "${TEST_POD_NAME}"
+
+    # Check if all layers are remote snapshots
+    NODE=$(kubectl get pods "${TEST_POD_NAME}" -ojsonpath='{.spec.nodeName}')
+    LAYER=$(get-topmost-layer "${NODE}" "${TEST_CONTAINER_NAME}")
+    LAYERSNUM=0
+    for (( ; ; )) ; do
+        LAYER=$(docker exec -i "${NODE}" ctr --namespace="k8s.io" snapshot --snapshotter=stargz info "${LAYER}" | jq -r '.Parent')
+        if [ "${LAYER}" == "null" ] ; then
+            break
+        elif [ ${LAYERSNUM} -gt 100 ] ; then
+            echo "testing image contains too many layes > 100"
+            return 1
+        fi
+        ((LAYERSNUM+=1))
+        LABEL=$(docker exec -i "${NODE}" ctr --namespace="k8s.io" snapshots --snapshotter=stargz info "${LAYER}" \
+                    | jq -r ".Labels.\"${REMOTE_SNAPSHOT_LABEL}\"")
+        echo "Checking layer ${LAYER} : ${LABEL}"
+        if [ "${LABEL}" == "null" ] ; then
+            echo "layer ${LAYER} isn't remote snapshot"
+            return 1
+        fi
+    done
+
+    if [ ${LAYERSNUM} -eq 0 ] ; then
+        echo "cannot get layers"
+        return 1
+    fi
+
+    return 0
+}
+export -f start-test
+
+wait-for-pod() {
+    local POD_NAME="${1}"
+
+    if [ "${POD_NAME}" == "" ] ; then
+        return 1
+    fi
+
+    IDX=0
+    DEADLINE=120
+    for (( ; ; )) ; do
+        STATUS=$(kubectl get pods "${POD_NAME}" -o 'jsonpath={..status.containerStatuses[0].state.running.startedAt}${..status.containerStatuses[0].state.waiting.reason}')
+        echo "Status: ${STATUS}"
+        STARTEDAT=$(echo "${STATUS}" | cut -f 1 -d '$')
+        if [ "${STARTEDAT}" != "" ] ; then
+            echo "Pod created"
+            break
+        elif [ ${IDX} -gt ${DEADLINE} ] ; then
+            echo "Deadline exeeded to wait for pod creation"
+            return 1
+        fi
+        ((IDX+=1))
+        sleep 1
+    done
+
+    return 0
+}
+export -f wait-for-pod
+
+get-topmost-layer() {
+    local NODE="${1}"
+    local CONTAINER="${2}"
+    local TARGET_CONTAINER=
+
+    if [ "${NODE}" == "" ] || [ "${CONTAINER}" == "" ] ; then
+        return 1
+    fi
+
+    for (( RETRY=1; RETRY<=50; RETRY++ )) ; do
+        TARGET_CONTAINER=$(docker exec -i "${NODE}" ctr --namespace="k8s.io" c ls -q labels."io.kubernetes.container.name"=="${CONTAINER}" | sed -n 1p)
+        if [ "${TARGET_CONTAINER}" != "" ] ; then
+            break
+        fi
+        sleep 3
+    done
+    if [ "${TARGET_CONTAINER}" == "" ] ; then
+        return 1
+    fi
+    LAYER=$(docker exec -i "${NODE}" ctr --namespace="k8s.io" c info "${TARGET_CONTAINER}" | jq -r '.SnapshotKey')
+    echo "${LAYER}"
+}
+export -f get-topmost-layer
+
+# --- create a basic cluster and check for lazy pulling
+LABEL=LAZYPULL run-test

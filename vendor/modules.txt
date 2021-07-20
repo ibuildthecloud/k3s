@@ -175,7 +175,7 @@ github.com/containerd/cgroups/v2
 github.com/containerd/cgroups/v2/stats
 # github.com/containerd/console v1.0.2 => github.com/containerd/console v1.0.0
 github.com/containerd/console
-# github.com/containerd/containerd v1.5.0-beta.4 => github.com/k3s-io/containerd v1.4.4-k3s2
+# github.com/containerd/containerd v1.5.2 => github.com/k3s-io/containerd v1.4.4-k3s2
 ## explicit
 github.com/containerd/containerd
 github.com/containerd/containerd/api/events
@@ -312,7 +312,7 @@ github.com/containerd/containerd/snapshots/storage
 github.com/containerd/containerd/sys
 github.com/containerd/containerd/sys/reaper
 github.com/containerd/containerd/version
-# github.com/containerd/continuity v0.0.0-20210208174643-50096c924a4e => github.com/k3s-io/continuity v0.0.0-20210309170710-f93269e0d5c1
+# github.com/containerd/continuity v0.1.0 => github.com/k3s-io/continuity v0.0.0-20210309170710-f93269e0d5c1
 github.com/containerd/continuity
 github.com/containerd/continuity/devices
 github.com/containerd/continuity/driver
@@ -356,13 +356,37 @@ github.com/containerd/fifo
 ## explicit
 github.com/containerd/fuse-overlayfs-snapshotter
 github.com/containerd/fuse-overlayfs-snapshotter/plugin
-# github.com/containerd/go-cni v1.0.1
+# github.com/containerd/go-cni v1.0.2
 github.com/containerd/go-cni
 # github.com/containerd/go-runc v0.0.0-20200220073739-7016d3ce2328 => github.com/containerd/go-runc v0.0.0-20200220073739-7016d3ce2328
 github.com/containerd/go-runc
 # github.com/containerd/imgcrypt v1.0.1
 github.com/containerd/imgcrypt
 github.com/containerd/imgcrypt/images/encryption
+# github.com/containerd/stargz-snapshotter v0.6.4
+## explicit
+github.com/containerd/stargz-snapshotter/cache
+github.com/containerd/stargz-snapshotter/fs
+github.com/containerd/stargz-snapshotter/fs/config
+github.com/containerd/stargz-snapshotter/fs/layer
+github.com/containerd/stargz-snapshotter/fs/metrics
+github.com/containerd/stargz-snapshotter/fs/reader
+github.com/containerd/stargz-snapshotter/fs/remote
+github.com/containerd/stargz-snapshotter/fs/source
+github.com/containerd/stargz-snapshotter/service
+github.com/containerd/stargz-snapshotter/service/keychain/cri
+github.com/containerd/stargz-snapshotter/service/keychain/dockerconfig
+github.com/containerd/stargz-snapshotter/service/keychain/kubeconfig
+github.com/containerd/stargz-snapshotter/service/plugin
+github.com/containerd/stargz-snapshotter/service/resolver
+github.com/containerd/stargz-snapshotter/snapshot
+github.com/containerd/stargz-snapshotter/snapshot/overlayutils
+github.com/containerd/stargz-snapshotter/task
+github.com/containerd/stargz-snapshotter/util/lrucache
+github.com/containerd/stargz-snapshotter/util/namedmutex
+# github.com/containerd/stargz-snapshotter/estargz v0.6.4
+github.com/containerd/stargz-snapshotter/estargz
+github.com/containerd/stargz-snapshotter/estargz/errorutil
 # github.com/containerd/ttrpc v1.0.2 => github.com/containerd/ttrpc v1.0.1
 github.com/containerd/ttrpc
 # github.com/containerd/typeurl v1.0.1 => github.com/containerd/typeurl v1.0.1
@@ -400,7 +424,7 @@ github.com/coreos/go-semver/semver
 github.com/coreos/go-systemd/activation
 github.com/coreos/go-systemd/daemon
 github.com/coreos/go-systemd/journal
-# github.com/coreos/go-systemd/v22 v22.3.1
+# github.com/coreos/go-systemd/v22 v22.3.2
 github.com/coreos/go-systemd/v22/activation
 github.com/coreos/go-systemd/v22/daemon
 github.com/coreos/go-systemd/v22/dbus
@@ -416,7 +440,7 @@ github.com/davecgh/go-spew/spew
 github.com/daviddengcn/go-colortext
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 github.com/dgrijalva/jwt-go
-# github.com/docker/cli v0.0.0-20191017083524-a8ff7f821017
+# github.com/docker/cli v20.10.6+incompatible
 github.com/docker/cli/cli/config
 github.com/docker/cli/cli/config/configfile
 github.com/docker/cli/cli/config/credentials
@@ -425,7 +449,7 @@ github.com/docker/cli/cli/config/types
 github.com/docker/distribution/digestset
 github.com/docker/distribution/reference
 github.com/docker/distribution/registry/api/errcode
-# github.com/docker/docker v20.10.5+incompatible => github.com/docker/docker v20.10.2+incompatible
+# github.com/docker/docker v20.10.6+incompatible => github.com/docker/docker v20.10.2+incompatible
 ## explicit
 github.com/docker/docker/api
 github.com/docker/docker/api/types
@@ -674,9 +698,15 @@ github.com/grpc-ecosystem/go-grpc-prometheus
 github.com/grpc-ecosystem/grpc-gateway/internal
 github.com/grpc-ecosystem/grpc-gateway/runtime
 github.com/grpc-ecosystem/grpc-gateway/utilities
+# github.com/hanwen/go-fuse/v2 v2.1.0
+github.com/hanwen/go-fuse/v2/fs
+github.com/hanwen/go-fuse/v2/fuse
+github.com/hanwen/go-fuse/v2/internal
+github.com/hanwen/go-fuse/v2/internal/utimens
+github.com/hanwen/go-fuse/v2/splice
 # github.com/hashicorp/errwrap v1.0.0
 github.com/hashicorp/errwrap
-# github.com/hashicorp/go-multierror v1.0.0
+# github.com/hashicorp/go-multierror v1.1.1
 github.com/hashicorp/go-multierror
 # github.com/hashicorp/golang-lru v0.5.3
 github.com/hashicorp/golang-lru
@@ -722,7 +752,7 @@ github.com/k3s-io/kine/pkg/server
 github.com/k3s-io/kine/pkg/tls
 # github.com/karrick/godirwalk v1.16.1
 github.com/karrick/godirwalk
-# github.com/klauspost/compress v1.12.2
+# github.com/klauspost/compress v1.12.3
 ## explicit
 github.com/klauspost/compress/fse
 github.com/klauspost/compress/huff0

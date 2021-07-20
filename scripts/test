@@ -21,6 +21,8 @@ echo "Did test-run-basics $?"
 . ./scripts/test-run-compat
 echo "Did test-run-compat $?"
 
+. ./scripts/test-run-lazypull
+echo "Did test-run-lazypull $?"
 
 # ---
 
