@@ -1,0 +1,200 @@
+# Usage: sudo ansible-playbook main.yaml --ask-become-pass --private-key PRIVATE_KEY_FILE -u REMOTE_USER
+---
+- name: Run sonobuoy tests
+  gather_facts: false
+  hosts: testservers
+  vars:
+    kubeconfig: "{{ kube_config | default('/tmp/sonobuoy_cncf/k3s.yaml') }}"
+
+  tasks:
+  - debug:
+      msg: "Username {{ ansible_user }}"
+
+  - debug:
+      msg: "Private key file {{ ansible_ssh_private_key_file }}"
+
+
+  - name: Create test working dir
+    file:
+      path: /tmp/sonobuoy_cncf
+      state: directory
+      mode: 0755
+
+  - name: Specifying a destination path
+    become: yes
+    copy:
+      src: /etc/rancher/k3s/k3s.yaml
+      dest: /tmp/sonobuoy_cncf/
+      remote_src: yes
+    when: kube_config is not defined
+
+  - name: Set variable if kubeconfig is passed
+    set_fact:
+      variable_host: 'local'
+    when: kube_config is defined
+
+- name: Run sonobuoy test
+  gather_facts: false
+  hosts: "{{ variable_host | default('testservers') }}"
+  vars:
+    kubeconfig: "{{ kube_config | default('/tmp/sonobuoy_cncf/k3s.yaml') }}"
+    k8s_ver: "{{ k8s_version | default('v1.17.2') }}"
+    sonobuoy_ver: "{{ sonobuoy_version | default('0.17.1') }}"
+    operating_system: "{{ os | default('linux') }}"
+
+  tasks:
+
+  - debug: var=kubeconfig
+  - debug: var=variable_host
+  - debug: var=inventory_hostname
+  - debug: var=sonobuoy_ver
+  - debug: var=k8s_ver
+
+  - name: Download sonobuoy
+    get_url:
+      url:  https://github.com/vmware-tanzu/sonobuoy/releases/download/v{{ sonobuoy_ver }}/sonobuoy_{{ sonobuoy_ver }}_{{ operating_system }}_amd64.tar.gz
+      dest: /tmp/sonobuoy_cncf/
+
+  - name: Unarchive sonobuoy tarball
+    shell:
+      cmd: tar xvf sonobuoy_{{ sonobuoy_ver }}_{{ operating_system }}_amd64.tar.gz
+      chdir: /tmp/sonobuoy_cncf
+
+  - name: Copy binary and set permissions
+    become: yes
+    copy:
+      src: /tmp/sonobuoy_cncf/sonobuoy
+      dest: /usr/local/bin/sonobuoy
+      remote_src: yes
+      mode: a+x
+    
+  - name: Delete sonobuoy ns if already exists
+    command: "/usr/local/bin/sonobuoy delete --all --kubeconfig={{ kubeconfig }} --wait"
+    register: status
+    until: status.rc == 0
+
+  - name: Start sonobuoy
+    command: "/usr/local/bin/sonobuoy run --mode=certified-conformance --kube-conformance-image-version={{ k8s_ver }} --kubeconfig={{ kubeconfig }}" 
+
+  - name: Check sonobuoy status
+    command: "/usr/local/bin/sonobuoy status --kubeconfig={{ kubeconfig }}"
+    register: result
+    until: "'Pending' not in result.stderr"
+    retries: 15
+    delay: 300
+    ignore_errors: yes
+
+  - name: Check sonobuoy status again
+    command: "/usr/local/bin/sonobuoy status --kubeconfig={{ kubeconfig }}"
+    register: result
+    until: "'running' not in result.stdout"
+    retries: 15
+    delay: 300
+
+  - name: Retrieve results
+    shell:
+      chdir: /tmp/sonobuoy_cncf/
+      cmd: /usr/local/bin/sonobuoy retrieve --kubeconfig={{ kubeconfig }}
+    register: result
+    until: result.stdout
+
+  - debug: var=result_status.stdout
+
+  - name: Unarchive results tarball
+    shell:
+      chdir: /tmp/sonobuoy_cncf/
+      cmd: tar xzf {{ result.stdout }} -C /tmp/sonobuoy_cncf
+
+
+  - name: Copy results to /tmp
+    become: yes
+    copy:
+      src: /tmp/sonobuoy_cncf/
+      dest: /tmp/sonobuoy_cncf/
+      remote_src: yes
+    when: variable_host is not defined
+
+  - name: Fetch junit01.xml  to local
+    fetch:
+      src: /tmp/sonobuoy_cncf/plugins/e2e/results/global/junit_01.xml
+      dest: /tmp/sonobuoy_cncf/plugins/e2e/results/global/junit_01.xaml
+      remote_src: yes
+      flat: yes
+
+  - name: Fetch e2e log to local
+    fetch:
+      src: /tmp/sonobuoy_cncf/plugins/e2e/results/global/e2e.log
+      dest: /tmp/sonobuoy_cncf/plugins/e2e/results/global/e2e.log
+      remote_src: yes
+      flat: yes
+
+  - name: Display results
+    shell:
+      chdir: /tmp/sonobuoy_cncf/
+      cmd: /usr/local/bin/sonobuoy status --kubeconfig={{ kubeconfig }}
+    register: result
+    until: result.stdout
+  
+  - debug:
+      msg: Sonobuoy test result {{ result.stdout }}
+
+
+- name: Upload sonobuoy results
+  gather_facts: false
+  hosts: local
+  tasks:
+  - debug:
+      msg: "Ansible playbook interpreter {{ ansible_python_interpreter }}"
+
+  - name: Verify AWS credentials access key
+    shell:
+      cmd: "/usr/local/bin/aws configure get aws_access_key_id"
+    register: result
+    failed_when:
+    - result.rc != 0
+
+  - name: Verify AWS credentials secret key
+    shell:
+      cmd: "/usr/local/bin/aws configure get aws_access_key_id"
+    register: result
+    failed_when:
+    - result.rc != 0
+
+  - name: Create aws bucket
+    aws_s3:
+      bucket: sonobuoy-results
+      mode: create
+
+  - name: Upload e2e results to aws bucket
+    aws_s3:
+      bucket: sonobuoy-results
+      object: k3s-e2e-log
+      src: /tmp/sonobuoy_cncf/plugins/e2e/results/global/e2e.log
+      mode: put
+    register: upload_status
+    #TO LIST  aws s3 cp s3://sonobuoy-results/k3s /tmp
+
+  - name: Upload junit results to aws bucket
+    aws_s3:
+      bucket: sonobuoy-results
+      object: k3s-junit-xml
+      src: /tmp/sonobuoy_cncf/plugins/e2e/results/global/junit_01.xml
+      mode: put
+    register: upload_status
+
+    #TO LIST  aws s3 cp s3://sonobuoy-results/k3s-e2e-log /tmp
+
+  - name: Get test result
+    shell: "tail -6 /tmp/sonobuoy_cncf/plugins/e2e/results/global/e2e.log"
+    register: result
+    failed_when:
+    - '"Fail" in result.stdout'
+  - debug: var=result.stdout
+
+  - name: Cleanup after tests are run
+      command: "/usr/local/bin/sonobuoy delete --all --kubeconfig={{ kubeconfig }} --wait"
+
+  - name: Delete local folder
+    shell:
+      cmd: "rm -rf /tmp/sonobuoy_cnc"
+
