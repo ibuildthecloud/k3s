@@ -1,0 +1,53 @@
+ARG GOLANG=golang:1.16.4-alpine3.12
+FROM ${GOLANG}
+
+ARG http_proxy=$http_proxy
+ARG https_proxy=$https_proxy
+ARG no_proxy=$no_proxy
+ENV http_proxy=$http_proxy
+ENV https_proxy=$https_proxy
+ENV no_proxy=$no_proxy
+
+RUN apk -U --no-cache add bash git gcc musl-dev docker vim less file curl wget ca-certificates jq linux-headers \
+    zlib-dev tar zip squashfs-tools npm coreutils python2 openssl-dev libffi-dev libseccomp libseccomp-dev make \
+    libuv-static sqlite-dev sqlite-static libselinux libselinux-dev zlib-dev zlib-static zstd gzip alpine-sdk binutils-gold
+RUN if [ "$(go env GOARCH)" = "arm64" ]; then                                                               \
+    wget https://github.com/aquasecurity/trivy/releases/download/v0.16.0/trivy_0.16.0_Linux-ARM64.tar.gz && \
+    tar -zxvf trivy_0.16.0_Linux-ARM64.tar.gz                                                            && \
+    mv trivy /usr/local/bin;                                                                                \
+    elif [ "$(go env GOARCH)" = "arm" ]; then                                                               \
+    wget https://github.com/aquasecurity/trivy/releases/download/v0.16.0/trivy_0.16.0_Linux-ARM.tar.gz   && \
+    tar -zxvf trivy_0.16.0_Linux-ARM.tar.gz                                                              && \
+    mv trivy /usr/local/bin;                                                                                \
+    else                                                                                                    \
+    wget https://github.com/aquasecurity/trivy/releases/download/v0.16.0/trivy_0.16.0_Linux-64bit.tar.gz && \
+    tar -zxvf trivy_0.16.0_Linux-64bit.tar.gz                                                            && \
+    mv trivy /usr/local/bin;                                                                                \
+    fi
+# this works for both go 1.15 and 1.16
+RUN GO111MODULE=on GOPROXY=direct go get golang.org/x/tools/cmd/goimports@gopls/v0.6.9
+RUN rm -rf /go/src /go/pkg
+
+RUN if [ "$(go env GOARCH)" = "amd64" ]; then \
+    curl -sL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s v1.40.0; \
+    fi
+
+ENV YQ_URL=https://github.com/mikefarah/yq/releases/download/v4.6.2/yq_linux
+RUN wget -O - ${YQ_URL}_$(go env GOARCH) > /usr/bin/yq && chmod +x /usr/bin/yq
+
+ARG SELINUX=true
+ENV SELINUX $SELINUX
+
+ENV GO111MODULE off
+ENV DAPPER_RUN_ARGS --privileged -v k3s-cache:/go/src/github.com/rancher/k3s/.cache -v trivy-cache:/root/.cache/trivy
+ENV DAPPER_ENV REPO TAG DRONE_TAG IMAGE_NAME SKIP_VALIDATE GCLOUD_AUTH GITHUB_TOKEN GOLANG
+ENV DAPPER_SOURCE /go/src/github.com/rancher/k3s/
+ENV DAPPER_OUTPUT ./bin ./dist ./build/out
+ENV DAPPER_DOCKER_SOCKET true
+ENV HOME ${DAPPER_SOURCE}
+ENV CROSS true
+ENV STATIC_BUILD true
+WORKDIR ${DAPPER_SOURCE}
+
+ENTRYPOINT ["./scripts/entry.sh"]
+CMD ["ci"]

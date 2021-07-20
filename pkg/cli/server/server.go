@@ -160,6 +160,17 @@ func run(app *cli.Context, cfg *cmds.Server, leaderControllers server.CustomCont
 		serverConfig.ControlConfig.DisableControllerManager = true
 		serverConfig.ControlConfig.DisableScheduler = true
 		serverConfig.ControlConfig.DisableCCM = true
+
+		// at this point we're doing a restore. Check to see if we've
+		// passed in a token and if not, check if the token file exists.
+		// If it doesn't, return an error indicating the token is necessary.
+		if cfg.Token == "" {
+			if _, err := os.Stat(filepath.Join(cfg.DataDir, "server/token")); err != nil {
+				if os.IsNotExist(err) {
+					return errors.New("")
+				}
+			}
+		}
 	}
 
 	serverConfig.ControlConfig.ClusterReset = cfg.ClusterReset

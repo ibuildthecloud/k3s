@@ -88,12 +88,89 @@ func (c *Cluster) shouldBootstrapLoad(ctx context.Context) (bool, error) {
 	stamp := c.bootstrapStamp()
 	if _, err := os.Stat(stamp); err == nil {
 		logrus.Info("Cluster bootstrap already complete")
-		return false, nil
+		return true, nil
 	}
 
 	// No errors and no bootstrap stamp, need to bootstrap.
 	return true, nil
 }
+
+// func (c *Cluster) validateBootstrapCertificates() error {
+// 	bootstrapDirs := []string{
+// 		"tls",
+// 		"tls/etcd",
+// 	}
+
+// 	for _, dir := range bootstrapDirs {
+// 		if _, err := os.Stat(filepath.Join(c.config.DataDir, dir)); os.IsNotExist(err) {
+// 			logrus.Debugf("missing %s directory from ${data-dir}", dir)
+// 			return fmt.Errorf("missing %s directory from ${data-dir}", dir)
+// 		}
+
+// 		ok, err := isDirEmpty(filepath.Join(c.config.DataDir, dir))
+// 		if err != nil {
+// 			return err
+// 		}
+// 		if ok {
+// 			logrus.Debugf("%s directory is empty", dir)
+// 			return fmt.Errorf("%s directory is empty", dir)
+// 		}
+// 	}
+
+// 	// check existence of certificate and contents against known bootstrap data and
+// 	// if there are any differences, return an error to trigger a rebootstrap
+// 	bootstrapCertificateAndFile := []string{
+// 		c.config.Runtime.ControlRuntimeBootstrap.ETCDServerCA,
+// 		c.config.Runtime.ControlRuntimeBootstrap.ETCDServerCAKey,
+// 		c.config.Runtime.ControlRuntimeBootstrap.ETCDPeerCA,
+// 		c.config.Runtime.ControlRuntimeBootstrap.ETCDPeerCAKey,
+// 		c.config.Runtime.ControlRuntimeBootstrap.ServerCA,
+// 		c.config.Runtime.ControlRuntimeBootstrap.ServerCAKey,
+// 		c.config.Runtime.ControlRuntimeBootstrap.ClientCA,
+// 		c.config.Runtime.ControlRuntimeBootstrap.ClientCAKey,
+// 		c.config.Runtime.ControlRuntimeBootstrap.ServiceKey,
+// 		c.config.Runtime.ControlRuntimeBootstrap.PasswdFile,
+// 		c.config.Runtime.ControlRuntimeBootstrap.RequestHeaderCA,
+// 		c.config.Runtime.ControlRuntimeBootstrap.RequestHeaderCAKey,
+// 		c.config.Runtime.ControlRuntimeBootstrap.IPSECKey,
+// 	}
+
+// 	if c.config.EncryptSecrets {
+// 		bootstrapCertificateAndFile = append(bootstrapCertificateAndFile, c.config.Runtime.ControlRuntimeBootstrap.EncryptionConfig)
+// 	}
+
+// 	for content, filename := range bootstrapCertificateAndFile {
+// 		if err := c.checkBootstrapCertificate(content, filename); err != nil {
+// 			return err
+// 		}
+// 	}
+
+// 	return nil
+// }
+
+// checkBootstrapCertificate checks the given content string against what's
+// read in the file given, hashes them, and compares the hashes. If they don't
+// match an error is returned.
+// func (c *Cluster) checkBootstrapCertificate(content, filename string) error {
+// 	bootstrapHash := sha256.Sum256([]byte(content))
+
+// 	fileHash := sha256.New()
+// 	f, err := os.Open(filepath.Join(c.config.DataDir, "tls", filename))
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer f.Close()
+
+// 	if _, err := io.Copy(fileHash, f); err != nil {
+// 		return err
+// 	}
+
+// 	if ret := bytes.Compare(bootstrapHash[:], fileHash.Sum(nil)); ret != 0 {
+// 		return fmt.Errorf("%s doesn't match bootstrap data", filename)
+// 	}
+
+// 	return nil
+// }
 
 // bootstrapped touches a file to indicate that bootstrap has been completed.
 func (c *Cluster) bootstrapped() error {
@@ -125,7 +202,7 @@ func (c *Cluster) httpBootstrap() error {
 		return err
 	}
 
-	return bootstrap.Read(bytes.NewBuffer(content), &c.runtime.ControlRuntimeBootstrap)
+	return bootstrap.WriteToDisk(bytes.NewBuffer(content), &c.runtime.ControlRuntimeBootstrap)
 }
 
 // bootstrap performs cluster bootstrapping, either via HTTP (for managed databases) or direct load from datastore.

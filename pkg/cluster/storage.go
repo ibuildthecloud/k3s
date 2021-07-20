@@ -21,7 +21,7 @@ import (
 // This is NOT used with embedded etcd, which bootstraps over HTTP.
 func (c *Cluster) save(ctx context.Context) error {
 	buf := &bytes.Buffer{}
-	if err := bootstrap.Write(buf, &c.runtime.ControlRuntimeBootstrap); err != nil {
+	if err := bootstrap.ReadFromDisk(buf, &c.runtime.ControlRuntimeBootstrap); err != nil {
 		return err
 	}
 	token := c.config.Token
@@ -112,7 +112,7 @@ func (c *Cluster) storageBootstrap(ctx context.Context) error {
 		return err
 	}
 
-	return bootstrap.Read(bytes.NewBuffer(data), &c.runtime.ControlRuntimeBootstrap)
+	return bootstrap.WriteToDisk(bytes.NewBuffer(data), &c.runtime.ControlRuntimeBootstrap)
 }
 
 // getBootstrapKeyFromStorage will list all keys that has prefix /bootstrap and will check for key that is
