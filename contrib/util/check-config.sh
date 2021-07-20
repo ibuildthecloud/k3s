@@ -304,19 +304,54 @@ echo
 
 echo 'Generally Necessary:'
 
+cgroupV2FsType='63677270'
+cgroupFsType="$(stat --file-system --format=%t /sys/fs/cgroup 2>/dev/null || :)"
+cgroupHybridFsType="$(stat --file-system --format=%t /sys/fs/cgroup/unified 2>/dev/null || :)"
+
 echo -n '- '
-cgroupSubsystemDir="$(awk '/[, ](cpu|cpuacct|cpuset|devices|freezer|memory)[, ]/ && $3 == "cgroup" { print $2 }' /proc/mounts | head -n1)"
-cgroupDir="$(dirname "$cgroupSubsystemDir")"
-if [ -d "$cgroupDir/cpu" ] || [ -d "$cgroupDir/cpuacct" ] || [ -d "$cgroupDir/cpuset" ] || [  -d "$cgroupDir/devices" ] || [ -d "$cgroupDir/freezer" ] || [ -d "$cgroupDir/memory" ]; then
-  wrap_good 'cgroup hierarchy' "properly mounted [$cgroupDir]"
-else
-  if [ "$cgroupSubsystemDir" ]; then
-    wrap_bad 'cgroup hierarchy' "single mountpoint! [$cgroupSubsystemDir]"
-  else
-    wrap_bad 'cgroup hierarchy' 'nonexistent??'
-  fi
-  echo "    $(wrap_color '(see https://github.com/tianon/cgroupfs-mount)' yellow)"
-fi
+case "${cgroupFsType}:${cgroupHybridFsType}" in
+  '':*)
+    cgroupVariant='Nonexistent'
+    ;;
+  ${cgroupV2FsType}:*)
+    cgroupVariant='V2'
+    ;;
+  *:${cgroupV2FsType})
+    cgroupVariant='Hybrid'
+    ;;
+  *)
+    cgroupVariant='V1'
+    ;;
+esac
+
+case "${cgroupVariant}" in
+  Nonexistent)
+    wrap_bad 'cgroup hierarchy' "cgroups ${cgroupVariant}"
+    ;;
+  *)
+    case "${cgroupVariant}" in
+      V2)
+        cgroupMatch='cpu|cpuset|memory'
+        cgroupMatchNum=3
+        cgroupFile='/sys/fs/cgroup/cgroup.controllers'
+        ;;
+      *)
+        cgroupMatch='cpuset|memory'
+        cgroupMatchNum=2
+        cgroupFile='/proc/self/cgroup'
+        ;;
+    esac
+    if [ "$(tr -s ' ' '\n' <"${cgroupFile}" 2>/dev/null | grep -Ec "^(${cgroupMatch})\$")" -eq ${cgroupMatchNum} ]; then
+      cgroupStatus='good'
+    else
+      cgroupStatus='bad'
+    fi
+    wrap_${cgroupStatus} 'cgroup hierarchy' "cgroups ${cgroupVariant} mounted, ${cgroupMatch} controllers status: ${cgroupStatus}"
+    if [ "x${cgroupStatus}" = 'xbad' ]; then
+      warning '    (for cgroups V1/Hybrid on non-Systemd init see https://github.com/tianon/cgroupfs-mount)'
+    fi
+    ;;
+esac
 
 if [ "$(cat /sys/module/apparmor/parameters/enabled 2>/dev/null)" = 'Y' ]; then
   echo -n '- '
