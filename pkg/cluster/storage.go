@@ -132,20 +132,21 @@ func (c *Cluster) getBootstrapKeyFromStorage(ctx context.Context, storageClient 
 		return nil, false, nil
 	}
 	if len(bootstrapList) > 1 {
-		return nil, false, errors.New("found multiple bootstrap keys in storage")
+		logrus.Warn("found multiple bootstrap keys in storage")
 	}
-	bootstrapKV := bootstrapList[0]
-	// checking for empty string bootstrap key
-	switch string(bootstrapKV.Key) {
-	case emptyStringKey:
-		logrus.Warn("bootstrap data encrypted with empty string, deleting and resaving with token")
-		c.saveBootstrap = true
-		if err := storageClient.Delete(ctx, emptyStringKey, bootstrapKV.Modified); err != nil {
-			return nil, false, err
+	for _, bootstrapKV := range bootstrapList {
+		// checking for empty string bootstrap key
+		switch string(bootstrapKV.Key) {
+		case emptyStringKey:
+			logrus.Warn("bootstrap data encrypted with empty string, deleting and resaving with token")
+			c.saveBootstrap = true
+			if err := storageClient.Delete(ctx, emptyStringKey, bootstrapKV.Modified); err != nil {
+				return nil, false, err
+			}
+			return &bootstrapKV, true, nil
+		case tokenKey:
+			return &bootstrapKV, false, nil
 		}
-		return &bootstrapKV, true, nil
-	case tokenKey:
-		return &bootstrapKV, false, nil
 	}
 
 	return nil, false, errors.New("bootstrap data already found and encrypted with different token")
