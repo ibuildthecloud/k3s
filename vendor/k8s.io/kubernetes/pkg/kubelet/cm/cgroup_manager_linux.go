@@ -17,6 +17,7 @@ limitations under the License.
 package cm
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -29,13 +30,12 @@ import (
 	libcontainercgroups "github.com/opencontainers/runc/libcontainer/cgroups"
 	cgroupfs "github.com/opencontainers/runc/libcontainer/cgroups/fs"
 	cgroupfs2 "github.com/opencontainers/runc/libcontainer/cgroups/fs2"
+	"github.com/opencontainers/runc/libcontainer/cgroups/fscommon"
 	cgroupsystemd "github.com/opencontainers/runc/libcontainer/cgroups/systemd"
 	libcontainerconfigs "github.com/opencontainers/runc/libcontainer/configs"
 	libcontainerdevices "github.com/opencontainers/runc/libcontainer/devices"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/klog/v2"
 	v1helper "k8s.io/kubernetes/pkg/apis/core/v1/helper"
-	kubefeatures "k8s.io/kubernetes/pkg/features"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -56,6 +56,10 @@ const (
 	noneDriver = "none"
 	// systemdSuffix is the cgroup name suffix for systemd
 	systemdSuffix string = ".slice"
+	// MemoryMin is memory.min for cgroup v2
+	MemoryMin string = "memory.min"
+	// MemoryHigh is memory.high for cgroup v2
+	MemoryHigh string = "memory.high"
 )
 
 var RootCgroupName = CgroupName([]string{})
@@ -137,22 +141,18 @@ func IsSystemdStyleName(name string) bool {
 type libcontainerAdapter struct {
 	// cgroupManagerType defines how to interface with libcontainer
 	cgroupManagerType libcontainerCgroupManagerType
-	rootless          bool
 }
 
 // newLibcontainerAdapter returns a configured libcontainerAdapter for specified manager.
 // it does any initialization required by that manager to function.
-func newLibcontainerAdapter(cgroupManagerType libcontainerCgroupManagerType, rootless bool) *libcontainerAdapter {
-	return &libcontainerAdapter{cgroupManagerType: cgroupManagerType, rootless: rootless}
+func newLibcontainerAdapter(cgroupManagerType libcontainerCgroupManagerType) *libcontainerAdapter {
+	return &libcontainerAdapter{cgroupManagerType: cgroupManagerType}
 }
 
 // newManager returns an implementation of cgroups.Manager
 func (l *libcontainerAdapter) newManager(cgroups *libcontainerconfigs.Cgroup, paths map[string]string) (libcontainercgroups.Manager, error) {
 	switch l.cgroupManagerType {
 	case libcontainerCgroupfs:
-		if l.rootless {
-			return nil, fmt.Errorf("cgroup manager %v does not support rootless", l.cgroupManagerType)
-		}
 		if libcontainercgroups.IsCgroup2UnifiedMode() {
 			return cgroupfs2.NewManager(cgroups, paths["memory"], false)
 		}
@@ -163,10 +163,7 @@ func (l *libcontainerAdapter) newManager(cgroups *libcontainerconfigs.Cgroup, pa
 			panic("systemd cgroup manager not available")
 		}
 		if libcontainercgroups.IsCgroup2UnifiedMode() {
-			return cgroupsystemd.NewUnifiedManager(cgroups, paths["memory"], l.rootless), nil
-		}
-		if l.rootless {
-			return nil, fmt.Errorf("cgroup manager %v requires cgroup v2 for rootless", l.cgroupManagerType)
+			return cgroupsystemd.NewUnifiedManager(cgroups, paths["memory"], false), nil
 		}
 		return cgroupsystemd.NewLegacyManager(cgroups, paths), nil
 	}
@@ -200,26 +197,22 @@ type cgroupManagerImpl struct {
 var _ CgroupManager = &cgroupManagerImpl{}
 
 // NewCgroupManager is a factory method that returns a CgroupManager
-func NewCgroupManager(cs *CgroupSubsystems, cgroupDriver string, rootless bool) (CgroupManager, error) {
+func NewCgroupManager(cs *CgroupSubsystems, cgroupDriver string) CgroupManager {
 	if cgroupDriver == noneDriver {
-		if !utilfeature.DefaultFeatureGate.Enabled(kubefeatures.SupportNoneCgroupDriver) {
-			return nil, fmt.Errorf("cgroup driver %q requires SupportNoneCgroupDriver feature gate", cgroupDriver)
-		}
+		// The patch for the "none" driver isn't going to be merged to the Kubernetes upstream,
+		// so it is no worth adding a FeatureGate for this.
 		cm := &noneCgroupManager{}
 		cm.init()
-		return cm, nil
+		return cm
 	}
 	managerType := libcontainerCgroupfs
 	if cgroupDriver == string(libcontainerSystemd) {
 		managerType = libcontainerSystemd
 	}
-	if rootless && !utilfeature.DefaultFeatureGate.Enabled(kubefeatures.Rootless) {
-		return nil, fmt.Errorf("rootless requires Rootless feature gate")
-	}
 	return &cgroupManagerImpl{
 		subsystems: cs,
-		adapter:    newLibcontainerAdapter(managerType, rootless),
-	}, nil
+		adapter:    newLibcontainerAdapter(managerType),
+	}
 }
 
 // Name converts the cgroup to the driver specific value in cgroupfs form.
@@ -353,27 +346,6 @@ func (m *cgroupManagerImpl) Destroy(cgroupConfig *CgroupConfig) error {
 	return nil
 }
 
-type subsystem interface {
-	// Name returns the name of the subsystem.
-	Name() string
-	// Set the cgroup represented by cgroup.
-	Set(path string, cgroup *libcontainerconfigs.Resources) error
-	// GetStats returns the statistics associated with the cgroup
-	GetStats(path string, stats *libcontainercgroups.Stats) error
-}
-
-// getSupportedSubsystems returns a map of subsystem and if it must be mounted for the kubelet to function.
-func getSupportedSubsystems() map[subsystem]bool {
-	supportedSubsystems := map[subsystem]bool{
-		&cgroupfs.MemoryGroup{}: true,
-		&cgroupfs.CpuGroup{}:    true,
-		&cgroupfs.PidsGroup{}:   true,
-	}
-	// not all hosts support hugetlb cgroup, and in the absent of hugetlb, we will fail silently by reporting no capacity.
-	supportedSubsystems[&cgroupfs.HugetlbGroup{}] = false
-	return supportedSubsystems
-}
-
 // getCpuWeight converts from the range [2, 262144] to [1, 10000]
 func getCpuWeight(cpuShares *uint64) uint64 {
 	if cpuShares == nil {
@@ -414,51 +386,6 @@ func getSupportedUnifiedControllers() sets.String {
 	})
 	// Return the set of controllers that are supported both by the Kubelet and by the kernel
 	return supportedControllers.Intersection(availableRootControllers)
-}
-
-// propagateControllers on an unified hierarchy enables all the supported controllers for the specified cgroup
-func propagateControllers(path string) error {
-	if err := os.MkdirAll(filepath.Join(cmutil.CgroupRoot, path), 0755); err != nil {
-		return fmt.Errorf("failed to create cgroup %q : %v", path, err)
-	}
-
-	// Retrieve all the supported controllers from the cgroup root
-	controllersFileContent, err := ioutil.ReadFile(filepath.Join(cmutil.CgroupRoot, "cgroup.controllers"))
-	if err != nil {
-		return fmt.Errorf("failed to read controllers from %q : %v", cmutil.CgroupRoot, err)
-	}
-
-	supportedControllers := getSupportedUnifiedControllers()
-
-	// The retrieved content looks like: "cpuset cpu io memory hugetlb pids".  Prepend each of the controllers
-	// with '+', so we have something like "+cpuset +cpu +io +memory +hugetlb +pids"
-	controllers := ""
-	for _, controller := range strings.Fields(string(controllersFileContent)) {
-		// ignore controllers we don't care about
-		if !supportedControllers.Has(controller) {
-			continue
-		}
-
-		sep := " +"
-		if controllers == "" {
-			sep = "+"
-		}
-		controllers = controllers + sep + controller
-	}
-
-	current := cmutil.CgroupRoot
-
-	// Write the controllers list to each "cgroup.subtree_control" file until it reaches the parent cgroup.
-	// For the /foo/bar/baz cgroup, controllers must be enabled sequentially in the files:
-	// - /sys/fs/cgroup/foo/cgroup.subtree_control
-	// - /sys/fs/cgroup/foo/bar/cgroup.subtree_control
-	for _, p := range strings.Split(filepath.Dir(path), "/") {
-		current = filepath.Join(current, p)
-		if err := ioutil.WriteFile(filepath.Join(current, "cgroup.subtree_control"), []byte(controllers), 0755); err != nil {
-			return fmt.Errorf("failed to enable controllers on %q: %v", cmutil.CgroupRoot, err)
-		}
-	}
-	return nil
 }
 
 func (m *cgroupManagerImpl) toResources(resourceConfig *ResourceConfig) *libcontainerconfigs.Resources {
@@ -521,6 +448,15 @@ func (m *cgroupManagerImpl) toResources(resourceConfig *ResourceConfig) *libcont
 			Limit:    uint64(0),
 		})
 	}
+	// Ideally unified is used for all the resources when running on cgroup v2.
+	// It doesn't make difference for the memory.max limit, but for e.g. the cpu controller
+	// you can specify the correct setting without relying on the conversions performed by the OCI runtime.
+	if resourceConfig.Unified != nil && libcontainercgroups.IsCgroup2UnifiedMode() {
+		resources.Unified = make(map[string]string)
+		for k, v := range resourceConfig.Unified {
+			resources.Unified[k] = v
+		}
+	}
 	return resources
 }
 
@@ -558,10 +494,6 @@ func (m *cgroupManagerImpl) Update(cgroupConfig *CgroupConfig) error {
 	}
 
 	if unified {
-		if err := propagateControllers(libcontainerCgroupConfig.Path); err != nil {
-			return err
-		}
-
 		supportedControllers := getSupportedUnifiedControllers()
 		if !supportedControllers.Has("hugetlb") {
 			resources.HugetlbLimit = nil
@@ -692,55 +624,23 @@ func (m *cgroupManagerImpl) ReduceCPULimits(cgroupName CgroupName) error {
 	return m.Update(containerConfig)
 }
 
-func getStatsSupportedSubsystems(cgroupPaths map[string]string) (*libcontainercgroups.Stats, error) {
-	stats := libcontainercgroups.NewStats()
-	for sys, required := range getSupportedSubsystems() {
-		if _, ok := cgroupPaths[sys.Name()]; !ok {
-			if required {
-				return nil, fmt.Errorf("failed to find subsystem mount for required subsystem: %v", sys.Name())
-			}
-			// the cgroup is not mounted, but its not required so continue...
-			klog.V(6).InfoS("Unable to find subsystem mount for optional subsystem", "subsystemName", sys.Name())
-			continue
-		}
-		if err := sys.GetStats(cgroupPaths[sys.Name()], stats); err != nil {
-			return nil, fmt.Errorf("failed to get stats for supported subsystems : %v", err)
-		}
-	}
-	return stats, nil
-}
-
-func toResourceStats(stats *libcontainercgroups.Stats) *ResourceStats {
-	return &ResourceStats{
-		MemoryStats: &MemoryStats{
-			Usage: int64(stats.MemoryStats.Usage.Usage),
-		},
-	}
-}
-
-// Get sets the ResourceParameters of the specified cgroup as read from the cgroup fs
-func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, error) {
-	var err error
-	var stats *libcontainercgroups.Stats
+// MemoryUsage returns the current memory usage of the specified cgroup,
+// as read from cgroupfs.
+func (m *cgroupManagerImpl) MemoryUsage(name CgroupName) (int64, error) {
+	var path, file string
 	if libcontainercgroups.IsCgroup2UnifiedMode() {
-		cgroupPath := m.buildCgroupUnifiedPath(name)
-		manager, err := cgroupfs2.NewManager(nil, cgroupPath, m.adapter.rootless)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create cgroup v2 manager: %v", err)
-		}
-
-		stats, err = manager.GetStats()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get stats for cgroup %v: %v", name, err)
-		}
+		path = m.buildCgroupUnifiedPath(name)
+		file = "memory.current"
 	} else {
-		cgroupPaths := m.buildCgroupPaths(name)
-		stats, err = getStatsSupportedSubsystems(cgroupPaths)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get stats supported cgroup subsystems for cgroup %v: %v", name, err)
+		mp, ok := m.subsystems.MountPoints["memory"]
+		if !ok { // should not happen
+			return -1, errors.New("no cgroup v1 mountpoint for memory controller found")
 		}
+		path = mp + "/" + m.Name(name)
+		file = "memory.usage_in_bytes"
 	}
-	return toResourceStats(stats), nil
+	val, err := fscommon.GetCgroupParamUint(path, file)
+	return int64(val), err
 }
 
 type noneCgroupManager struct {
@@ -791,8 +691,6 @@ func (m *noneCgroupManager) ReduceCPULimits(cgroupName CgroupName) error {
 	return nil
 }
 
-func (m *noneCgroupManager) GetResourceStats(name CgroupName) (*ResourceStats, error) {
-	return &ResourceStats{
-		MemoryStats: &MemoryStats{},
-	}, nil
+func (m *noneCgroupManager) MemoryUsage(name CgroupName) (int64, error) {
+	return 0, nil
 }

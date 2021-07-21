@@ -64,17 +64,19 @@ func (o ObjectByGVK) Add(obj runtime.Object) (schema.GroupVersionKind, error) {
 }
 
 type ObjectSet struct {
-	errs     []error
-	objects  ObjectByGVK
-	order    []runtime.Object
-	gvkOrder []schema.GroupVersionKind
-	gvkSeen  map[schema.GroupVersionKind]bool
+	errs        []error
+	objects     ObjectByGVK
+	objectsByGK ObjectByGK
+	order       []runtime.Object
+	gvkOrder    []schema.GroupVersionKind
+	gvkSeen     map[schema.GroupVersionKind]bool
 }
 
 func NewObjectSet(objs ...runtime.Object) *ObjectSet {
 	os := &ObjectSet{
-		objects: ObjectByGVK{},
-		gvkSeen: map[schema.GroupVersionKind]bool{},
+		objects:     ObjectByGVK{},
+		objectsByGK: ObjectByGK{},
+		gvkSeen:     map[schema.GroupVersionKind]bool{},
 	}
 	os.Add(objs...)
 	return os
@@ -85,6 +87,11 @@ func (o *ObjectSet) ObjectsByGVK() ObjectByGVK {
 		return nil
 	}
 	return o.objects
+}
+
+func (o *ObjectSet) Contains(gk schema.GroupKind, key ObjectKey) bool {
+	_, ok := o.objectsByGK[gk][key]
+	return ok
 }
 
 func (o *ObjectSet) All() []runtime.Object {
@@ -104,6 +111,12 @@ func (o *ObjectSet) add(obj runtime.Object) {
 	}
 
 	gvk, err := o.objects.Add(obj)
+	if err != nil {
+		o.err(errors.Wrapf(err, "failed to add %T", obj))
+		return
+	}
+
+	_, err = o.objectsByGK.Add(obj)
 	if err != nil {
 		o.err(errors.Wrapf(err, "failed to add %T", obj))
 		return
@@ -152,4 +165,33 @@ func (o *ObjectSet) GVKOrder(known ...schema.GroupVersionKind) []schema.GroupVer
 	})
 
 	return append(o.gvkOrder, rest...)
+}
+
+type ObjectByGK map[schema.GroupKind]map[ObjectKey]runtime.Object
+
+func (o ObjectByGK) Add(obj runtime.Object) (schema.GroupKind, error) {
+	metadata, err := meta.Accessor(obj)
+	if err != nil {
+		return schema.GroupKind{}, err
+	}
+
+	gvk, err := gvk.Get(obj)
+	if err != nil {
+		return schema.GroupKind{}, err
+	}
+
+	gk := gvk.GroupKind()
+
+	objs := o[gk]
+	if objs == nil {
+		objs = map[ObjectKey]runtime.Object{}
+		o[gk] = objs
+	}
+
+	objs[ObjectKey{
+		Namespace: metadata.GetNamespace(),
+		Name:      metadata.GetName(),
+	}] = obj
+
+	return gk, nil
 }

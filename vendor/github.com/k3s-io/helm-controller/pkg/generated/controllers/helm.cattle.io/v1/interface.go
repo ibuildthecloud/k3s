@@ -20,34 +20,33 @@ package v1
 
 import (
 	v1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
-	clientset "github.com/k3s-io/helm-controller/pkg/generated/clientset/versioned/typed/helm.cattle.io/v1"
-	informers "github.com/k3s-io/helm-controller/pkg/generated/informers/externalversions/helm.cattle.io/v1"
-	"github.com/rancher/wrangler/pkg/generic"
+	"github.com/rancher/lasso/pkg/controller"
+	"github.com/rancher/wrangler/pkg/schemes"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
+
+func init() {
+	schemes.Register(v1.AddToScheme)
+}
 
 type Interface interface {
 	HelmChart() HelmChartController
 	HelmChartConfig() HelmChartConfigController
 }
 
-func New(controllerManager *generic.ControllerManager, client clientset.HelmV1Interface,
-	informers informers.Interface) Interface {
+func New(controllerFactory controller.SharedControllerFactory) Interface {
 	return &version{
-		controllerManager: controllerManager,
-		client:            client,
-		informers:         informers,
+		controllerFactory: controllerFactory,
 	}
 }
 
 type version struct {
-	controllerManager *generic.ControllerManager
-	informers         informers.Interface
-	client            clientset.HelmV1Interface
+	controllerFactory controller.SharedControllerFactory
 }
 
 func (c *version) HelmChart() HelmChartController {
-	return NewHelmChartController(v1.SchemeGroupVersion.WithKind("HelmChart"), c.controllerManager, c.client, c.informers.HelmCharts())
+	return NewHelmChartController(schema.GroupVersionKind{Group: "helm.cattle.io", Version: "v1", Kind: "HelmChart"}, "helmcharts", true, c.controllerFactory)
 }
 func (c *version) HelmChartConfig() HelmChartConfigController {
-	return NewHelmChartConfigController(v1.SchemeGroupVersion.WithKind("HelmChartConfig"), c.controllerManager, c.client, c.informers.HelmChartConfigs())
+	return NewHelmChartConfigController(schema.GroupVersionKind{Group: "helm.cattle.io", Version: "v1", Kind: "HelmChartConfig"}, "helmchartconfigs", true, c.controllerFactory)
 }

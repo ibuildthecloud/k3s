@@ -3,14 +3,14 @@
 package executor
 
 import (
+	"errors"
 	"io/ioutil"
 	"path/filepath"
-	"strings"
 
 	"github.com/rancher/k3s/pkg/version"
 	"github.com/sirupsen/logrus"
-	"go.etcd.io/etcd/embed"
-	"go.etcd.io/etcd/etcdserver"
+	"go.etcd.io/etcd/server/v3/embed"
+	"go.etcd.io/etcd/server/v3/etcdserver/api/rafthttp"
 )
 
 func (e Embedded) CurrentETCDOptions() (InitialOptions, error) {
@@ -34,7 +34,7 @@ func (e Embedded) ETCD(args ETCDConfig) error {
 	go func() {
 		select {
 		case err := <-etcd.Server.ErrNotify():
-			if strings.Contains(err.Error(), etcdserver.ErrMemberRemoved.Error()) {
+			if errors.Is(err, rafthttp.ErrMemberRemoved) {
 				tombstoneFile := filepath.Join(args.DataDir, "tombstone")
 				if err := ioutil.WriteFile(tombstoneFile, []byte{}, 0600); err != nil {
 					logrus.Fatalf("failed to write tombstone file to %s", tombstoneFile)

@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/rancher/dynamiclistener"
-	"github.com/rancher/wrangler-api/pkg/generated/controllers/core"
-	v1controller "github.com/rancher/wrangler-api/pkg/generated/controllers/core/v1"
+	"github.com/rancher/wrangler/pkg/generated/controllers/core"
+	v1controller "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
 	"github.com/rancher/wrangler/pkg/start"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"

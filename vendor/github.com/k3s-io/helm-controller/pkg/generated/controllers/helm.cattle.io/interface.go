@@ -19,10 +19,8 @@ limitations under the License.
 package helm
 
 import (
-	clientset "github.com/k3s-io/helm-controller/pkg/generated/clientset/versioned"
 	v1 "github.com/k3s-io/helm-controller/pkg/generated/controllers/helm.cattle.io/v1"
-	informers "github.com/k3s-io/helm-controller/pkg/generated/informers/externalversions/helm.cattle.io"
-	"github.com/rancher/wrangler/pkg/generic"
+	"github.com/rancher/lasso/pkg/controller"
 )
 
 type Interface interface {
@@ -30,21 +28,16 @@ type Interface interface {
 }
 
 type group struct {
-	controllerManager *generic.ControllerManager
-	informers         informers.Interface
-	client            clientset.Interface
+	controllerFactory controller.SharedControllerFactory
 }
 
 // New returns a new Interface.
-func New(controllerManager *generic.ControllerManager, informers informers.Interface,
-	client clientset.Interface) Interface {
+func New(controllerFactory controller.SharedControllerFactory) Interface {
 	return &group{
-		controllerManager: controllerManager,
-		informers:         informers,
-		client:            client,
+		controllerFactory: controllerFactory,
 	}
 }
 
 func (g *group) V1() v1.Interface {
-	return v1.New(g.controllerManager, g.client.HelmV1(), g.informers.V1())
+	return v1.New(g.controllerFactory)
 }

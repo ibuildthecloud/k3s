@@ -247,11 +247,7 @@ func genEncryptedNetworkInfo(controlConfig *config.Control, runtime *config.Cont
 	}
 
 	controlConfig.IPSECPSK = psk
-	if err := ioutil.WriteFile(runtime.IPSECKey, []byte(psk+"\n"), 0600); err != nil {
-		return err
-	}
-
-	return nil
+	return ioutil.WriteFile(runtime.IPSECKey, []byte(psk+"\n"), 0600)
 }
 
 func getServerPass(passwd *passwd.Passwd, config *config.Control) (string, error) {

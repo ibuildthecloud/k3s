@@ -3,7 +3,6 @@ package generators
 import (
 	"fmt"
 	"io"
-	"path/filepath"
 
 	args2 "github.com/rancher/wrangler/pkg/controller-gen/args"
 	"k8s.io/gengo/args"
@@ -31,19 +30,16 @@ type factory struct {
 }
 
 func (f *factory) Imports(*generator.Context) []string {
-	group := f.customArgs.Options.Groups[f.group]
+	imports := Imports
 
-	return []string{
-		"context",
-		"time",
-		"k8s.io/apimachinery/pkg/runtime/schema",
-		"k8s.io/client-go/rest",
-		GenericPackage,
-		AllSchemes,
-		fmt.Sprintf("clientset \"%s\"", group.ClientSetPackage),
-		fmt.Sprintf("scheme \"%s\"", filepath.Join(group.ClientSetPackage, "scheme")),
-		fmt.Sprintf("informers \"%s\"", group.InformersPackage),
+	for gv, types := range f.customArgs.TypesByGroup {
+		if f.group == gv.Group && len(types) > 0 {
+			imports = append(imports,
+				fmt.Sprintf("%s \"%s\"", gv.Version, types[0].Package))
+		}
 	}
+
+	return imports
 }
 
 func (f *factory) Init(c *generator.Context, w io.Writer) error {
@@ -56,24 +52,16 @@ func (f *factory) Init(c *generator.Context, w io.Writer) error {
 		"groupName": upperLowercase(f.group),
 	}
 
-	sw.Do("func (c *Factory) {{.groupName}}() Interface {\n", m)
-	sw.Do("	return New(c.controllerManager, c.informerFactory.{{.groupName}}(), c.clientset)\n", m)
-	sw.Do("}\n", m)
+	sw.Do("\n\nfunc (c *Factory) {{.groupName}}() Interface {\n", m)
+	sw.Do("	return New(c.ControllerFactory())\n", m)
+	sw.Do("}\n\n", m)
 
 	return sw.Error()
 }
 
 var factoryBody = `
-func init() {
-	scheme.AddToScheme(schemes.All)
-}
-
 type Factory struct {
-	synced            bool
-	informerFactory   informers.SharedInformerFactory
-	clientset         clientset.Interface
-	controllerManager *generic.ControllerManager
-	threadiness       map[schema.GroupVersionKind]int
+	*generic.Factory
 }
 
 func NewFactoryFromConfigOrDie(config *rest.Config) *Factory {
@@ -94,65 +82,21 @@ func NewFactoryFromConfigWithNamespace(config *rest.Config, namespace string) (*
 	})
 }
 
-type FactoryOptions struct {
-	Namespace string
-    Resync time.Duration
-}
+type FactoryOptions = generic.FactoryOptions
 
 func NewFactoryFromConfigWithOptions(config *rest.Config, opts *FactoryOptions) (*Factory, error) {
-	if opts == nil {
-		opts = &FactoryOptions{}
-	}
-
-	cs, err := clientset.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	resync := opts.Resync
-	if resync == 0 {
-		resync = 2*time.Hour
-	}
-
-	if opts.Namespace == "" {
-		informerFactory := informers.NewSharedInformerFactory(cs, resync)
-		return NewFactory(cs, informerFactory), nil
-	}
-
-	informerFactory := informers.NewSharedInformerFactoryWithOptions(cs, resync, informers.WithNamespace(opts.Namespace))
-	return NewFactory(cs, informerFactory), nil
-}
-
-
-func NewFactory(clientset clientset.Interface, informerFactory informers.SharedInformerFactory) *Factory {
+	f, err := generic.NewFactoryFromConfigWithOptions(config, opts)
 	return &Factory{
-		threadiness:       map[schema.GroupVersionKind]int{},
-		controllerManager: &generic.ControllerManager{},
-		clientset:         clientset,
-		informerFactory:   informerFactory,
+		Factory: f,
+	}, err
+}
+
+func NewFactoryFromConfigWithOptionsOrDie(config *rest.Config, opts *FactoryOptions) *Factory {
+    f, err := NewFactoryFromConfigWithOptions(config, opts)
+	if err != nil {
+		panic(err)
 	}
-}
-
-func (c *Factory) Controllers() map[schema.GroupVersionKind]*generic.Controller {
-	return c.controllerManager.Controllers()
-}
-
-func (c *Factory) SetThreadiness(gvk schema.GroupVersionKind, threadiness int) {
-	c.threadiness[gvk] = threadiness
-}
-
-func (c *Factory) Sync(ctx context.Context) error {
-	c.informerFactory.Start(ctx.Done())
-	c.informerFactory.WaitForCacheSync(ctx.Done())
-	return nil
-}
-
-func (c *Factory) Start(ctx context.Context, defaultThreadiness int) error {
-	if err := c.Sync(ctx); err != nil {
-		return err
-	}
-
-	return c.controllerManager.Start(ctx, defaultThreadiness, c.threadiness)
+	return f
 }
 
 `

@@ -3,7 +3,7 @@ package tls
 import (
 	"crypto/tls"
 
-	"go.etcd.io/etcd/pkg/transport"
+	"go.etcd.io/etcd/client/pkg/v3/transport"
 )
 
 type Config struct {

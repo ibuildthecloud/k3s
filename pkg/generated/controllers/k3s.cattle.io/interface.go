@@ -19,10 +19,8 @@ limitations under the License.
 package k3s
 
 import (
-	clientset "github.com/rancher/k3s/pkg/generated/clientset/versioned"
 	v1 "github.com/rancher/k3s/pkg/generated/controllers/k3s.cattle.io/v1"
-	informers "github.com/rancher/k3s/pkg/generated/informers/externalversions/k3s.cattle.io"
-	"github.com/rancher/wrangler/pkg/generic"
+	"github.com/rancher/lasso/pkg/controller"
 )
 
 type Interface interface {
@@ -30,21 +28,16 @@ type Interface interface {
 }
 
 type group struct {
-	controllerManager *generic.ControllerManager
-	informers         informers.Interface
-	client            clientset.Interface
+	controllerFactory controller.SharedControllerFactory
 }
 
 // New returns a new Interface.
-func New(controllerManager *generic.ControllerManager, informers informers.Interface,
-	client clientset.Interface) Interface {
+func New(controllerFactory controller.SharedControllerFactory) Interface {
 	return &group{
-		controllerManager: controllerManager,
-		informers:         informers,
-		client:            client,
+		controllerFactory: controllerFactory,
 	}
 }
 
 func (g *group) V1() v1.Interface {
-	return v1.New(g.controllerManager, g.client.K3sV1(), g.informers.V1())
+	return v1.New(g.controllerFactory)
 }

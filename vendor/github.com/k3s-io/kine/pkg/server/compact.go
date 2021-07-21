@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 
-	"go.etcd.io/etcd/etcdserver/etcdserverpb"
-	"go.etcd.io/etcd/mvcc/mvccpb"
+	"go.etcd.io/etcd/api/v3/etcdserverpb"
+	"go.etcd.io/etcd/api/v3/mvccpb"
 )
 
 func isCompact(txn *etcdserverpb.TxnRequest) bool {

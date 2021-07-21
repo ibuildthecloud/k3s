@@ -30,21 +30,15 @@ type interfaceGo struct {
 	customArgs *args2.CustomArgs
 }
 
-func (f *interfaceGo) Imports(*generator.Context) []string {
-	group := f.customArgs.Options.Groups[f.group]
-
-	packages := []string{
-		GenericPackage,
-		fmt.Sprintf("clientset \"%s\"", group.ClientSetPackage),
-		fmt.Sprintf("informers \"%s/%s\"", group.InformersPackage, groupPackageName(f.group, group.PackageName)),
-	}
+func (f *interfaceGo) Imports(context *generator.Context) []string {
+	packages := Imports
 
 	for gv := range f.customArgs.TypesByGroup {
 		if gv.Group != f.group {
 			continue
 		}
-
-		packages = append(packages, fmt.Sprintf("%s \"%s/controllers/%s/%s\"", gv.Version, f.customArgs.Package, groupPackageName(gv.Group, ""), gv.Version))
+		packages = append(packages, fmt.Sprintf("%s \"%s/controllers/%s/%s\"", gv.Version, f.customArgs.Package,
+			groupPackageName(gv.Group, f.customArgs.Options.Groups[gv.Group].OutputControllerPackageName), gv.Version))
 	}
 
 	return packages
@@ -80,7 +74,7 @@ func (f *interfaceGo) Init(c *generator.Context, w io.Writer) error {
 			"version":      gv.Version,
 		}
 		sw.Do("\nfunc (g *group) {{.upperVersion}}() {{.version}}.Interface {\n", m)
-		sw.Do("return {{.version}}.New(g.controllerManager, g.client.{{.upperGroup}}{{.upperVersion}}(), g.informers.{{.upperVersion}}())\n", m)
+		sw.Do("return {{.version}}.New(g.controllerFactory)\n", m)
 		sw.Do("}\n", m)
 	}
 
@@ -89,18 +83,13 @@ func (f *interfaceGo) Init(c *generator.Context, w io.Writer) error {
 
 var interfaceBody = `
 type group struct {
-	controllerManager *generic.ControllerManager
-	informers         informers.Interface
-	client            clientset.Interface
+	controllerFactory controller.SharedControllerFactory
 }
 
 // New returns a new Interface.
-func New(controllerManager *generic.ControllerManager, informers informers.Interface,
-	client clientset.Interface) Interface {
+func New(controllerFactory controller.SharedControllerFactory) Interface {
 	return &group{
-		controllerManager: controllerManager,
-		informers:         informers,
-		client:            client,
+		controllerFactory: controllerFactory,
 	}
 }
 `

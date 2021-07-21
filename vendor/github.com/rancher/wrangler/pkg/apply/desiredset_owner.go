@@ -20,7 +20,8 @@ import (
 )
 
 var (
-	ErrOwnerNotFound = errors.New("owner not found")
+	ErrOwnerNotFound   = errors.New("owner not found")
+	ErrNoInformerFound = errors.New("informer not found")
 )
 
 func notFound(name string, gvk schema.GroupVersionKind) error {

@@ -29,7 +29,7 @@ import (
 	"github.com/rancher/k3s/pkg/static"
 	"github.com/rancher/k3s/pkg/util"
 	"github.com/rancher/k3s/pkg/version"
-	v1 "github.com/rancher/wrangler-api/pkg/generated/controllers/core/v1"
+	v1 "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
 	"github.com/rancher/wrangler/pkg/leader"
 	"github.com/rancher/wrangler/pkg/resolvehome"
 	"github.com/sirupsen/logrus"
@@ -117,12 +117,12 @@ func runControllers(ctx context.Context, wg *sync.WaitGroup, config *Config) err
 
 	sc, err := NewContext(ctx, controlConfig.Runtime.KubeConfigAdmin)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to create new server context")
 	}
 
 	wg.Wait()
 	if err := stageFiles(ctx, sc, controlConfig); err != nil {
-		return err
+		return errors.Wrap(err, "failed to stage files")
 	}
 
 	// run migration before we set controlConfig.Runtime.Core
@@ -130,24 +130,24 @@ func runControllers(ctx context.Context, wg *sync.WaitGroup, config *Config) err
 		sc.Core.Core().V1().Secret(),
 		sc.Core.Core().V1().Node(),
 		controlConfig.Runtime.NodePasswdFile); err != nil {
-		logrus.Warn(errors.Wrapf(err, "error migrating node-password file"))
+		logrus.Warn(errors.Wrap(err, "error migrating node-password file"))
 	}
 	controlConfig.Runtime.Core = sc.Core
 
 	if controlConfig.Runtime.ClusterControllerStart != nil {
 		if err := controlConfig.Runtime.ClusterControllerStart(ctx); err != nil {
-			return errors.Wrapf(err, "starting cluster controllers")
+			return errors.Wrap(err, "failed to start cluster controllers")
 		}
 	}
 
 	for _, controller := range config.Controllers {
 		if err := controller(ctx, sc); err != nil {
-			return errors.Wrap(err, "controller")
+			return errors.Wrapf(err, "failed to start custom controller %s", util.GetFunctionName(controller))
 		}
 	}
 
 	if err := sc.Start(ctx); err != nil {
-		return err
+		return errors.Wrap(err, "failed to start wranger controllers")
 	}
 
 	start := func(ctx context.Context) {
