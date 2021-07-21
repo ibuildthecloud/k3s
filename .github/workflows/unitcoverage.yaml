@@ -1,5 +1,11 @@
 name: Unit Test Coverage
-on: [push, pull_request]
+on: 
+  push:
+    paths-ignore: 
+      - "**.md"
+  pull_request:
+    paths-ignore:
+      - "**.md"
 jobs:
   test:
     name: Unit Tests
