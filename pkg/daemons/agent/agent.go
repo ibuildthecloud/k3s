@@ -5,8 +5,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/rancher/k3s/pkg/cgroups"
 	"github.com/rancher/k3s/pkg/daemons/config"
 	"github.com/rancher/k3s/pkg/daemons/executor"
+	"github.com/rootless-containers/rootlesskit/pkg/parent/cgrouputil" // used for cgroup2 evacuation, not specific to rootless mode
 	"github.com/sirupsen/logrus"
 	"k8s.io/component-base/logs"
 	_ "k8s.io/component-base/metrics/prometheus/restclient" // for client metric registration
@@ -42,7 +44,16 @@ func startKubeProxy(cfg *config.Agent) error {
 }
 
 func startKubelet(cfg *config.Agent) error {
-	argsMap := kubeletArgs(cfg)
+	cgroupsCheck := cgroups.CheckCgroups()
+	if cgroupsCheck.V2Evac {
+		// evacuate processes from cgroup / to /init
+		if err := cgrouputil.EvacuateCgroup2("init"); err != nil {
+			logrus.Errorf("failed to evacuate cgroup2: %+v", err)
+			return err
+		}
+	}
+
+	argsMap := kubeletArgs(cfg, cgroupsCheck)
 
 	args := config.GetArgsList(argsMap, cfg.ExtraKubeletArgs)
 	logrus.Infof("Running kubelet %s", config.ArgString(args))

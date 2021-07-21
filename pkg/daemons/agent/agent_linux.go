@@ -58,7 +58,7 @@ func kubeProxyArgs(cfg *config.Agent) map[string]string {
 	return argsMap
 }
 
-func kubeletArgs(cfg *config.Agent) map[string]string {
+func kubeletArgs(cfg *config.Agent, cgroupsInfo cgroups.CgroupCheck) map[string]string {
 	argsMap := map[string]string{
 		"healthz-bind-address":     "127.0.0.1",
 		"read-only-port":           "0",
@@ -125,22 +125,21 @@ func kubeletArgs(cfg *config.Agent) map[string]string {
 	if err != nil || defaultIP.String() != cfg.NodeIP {
 		argsMap["node-ip"] = cfg.NodeIP
 	}
-	kubeletRoot, runtimeRoot, hasCFS, hasPIDs := cgroups.CheckCgroups()
-	if !hasCFS {
+	if !cgroupsInfo.HasCFS {
 		logrus.Warn("Disabling CPU quotas due to missing cpu.cfs_period_us")
 		argsMap["cpu-cfs-quota"] = "false"
 	}
-	if !hasPIDs {
+	if !cgroupsInfo.HasPIDs {
 		logrus.Warn("Disabling pod PIDs limit feature due to missing cgroup pids support")
 		argsMap["cgroups-per-qos"] = "false"
 		argsMap["enforce-node-allocatable"] = ""
 		argsMap["feature-gates"] = addFeatureGate(argsMap["feature-gates"], "SupportPodPidsLimit=false")
 	}
-	if kubeletRoot != "" {
-		argsMap["kubelet-cgroups"] = kubeletRoot
+	if cgroupsInfo.KubeletRoot != "" {
+		argsMap["kubelet-cgroups"] = cgroupsInfo.KubeletRoot
 	}
-	if runtimeRoot != "" {
-		argsMap["runtime-cgroups"] = runtimeRoot
+	if cgroupsInfo.RuntimeRoot != "" {
+		argsMap["runtime-cgroups"] = cgroupsInfo.RuntimeRoot
 	}
 	if system.RunningInUserNS() {
 		argsMap["feature-gates"] = addFeatureGate(argsMap["feature-gates"], "DevicePlugins=false")
@@ -162,7 +161,7 @@ func kubeletArgs(cfg *config.Agent) map[string]string {
 	}
 
 	if cfg.Rootless {
-		createRootlessConfig(argsMap, hasCFS, hasCFS)
+		createRootlessConfig(argsMap, cgroupsInfo.HasCFS, cgroupsInfo.HasCFS)
 	}
 
 	if cfg.ProtectKernelDefaults {

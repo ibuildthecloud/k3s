@@ -43,10 +43,10 @@ func setupContainerdConfig(ctx context.Context, cfg *config.Node) error {
 	}
 
 	isRunningInUserNS := system.RunningInUserNS()
-	_, _, hasCFS, hasPIDs := cgroups.CheckCgroups()
+	cgroupsCheck := cgroups.CheckCgroups()
 	// "/sys/fs/cgroup" is namespaced
 	cgroupfsWritable := unix.Access("/sys/fs/cgroup", unix.W_OK) == nil
-	disableCgroup := isRunningInUserNS && (!hasCFS || !hasPIDs || !cgroupfsWritable)
+	disableCgroup := isRunningInUserNS && (!cgroupsCheck.HasCFS || !cgroupsCheck.HasPIDs || !cgroupfsWritable)
 	if disableCgroup {
 		logrus.Warn("cgroup v2 controllers are not delegated for rootless. Disabling cgroup.")
 	}
